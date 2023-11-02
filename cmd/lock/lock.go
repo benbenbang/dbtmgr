@@ -1,6 +1,20 @@
 package lock
 
-import "github.com/spf13/cobra"
+import (
+	"context"
+	"dbtmgr/internal/aws"
+	"dbtmgr/internal/subproc"
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+var (
+	bucket   string
+	key      string
+	lockInfo string
+)
 
 var AcquireCmd = &cobra.Command{
 	Use:   "acquire",
@@ -21,7 +35,13 @@ Example:
 		log.Debug("Running lock acquire command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Implementation for acquiring lock goes here
+		ctx := context.Background()
+
+		if err := aws.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
+			log.Errorf("Failed to acquire lock on S3 state file: %v", err)
+			os.Exit(1)
+		}
+
 		cmd.Println("dbtmgr lock acquired")
 	},
 }
@@ -44,8 +64,13 @@ Example:
 		log.Debug("Running lock release command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Implementation for releasing lock goes here
-		cmd.Println("dbtmgr lock released")
+		ctx := context.Background()
+
+		if err := aws.ReleaseStateLock(ctx, bucket, key); err != nil {
+			log.Errorf("Failed to release lock on S3 state file: %v", err)
+			os.Exit(1)
+		}
+		fmt.Println("Lock released successfully.")
 	},
 }
 
@@ -67,8 +92,23 @@ Example:
 		log.Debug("Running lock refresh command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Implementation for refreshing local state goes here
-		cmd.Println("dbtmgr state refreshed")
+		// Check if the local and remote SHAs are different
+		localSHA, remoteSHA, err := subproc.CompareSHAs()
+		if err != nil {
+			log.Errorf("failed to compare SHAs: %v", err)
+			os.Exit(1)
+		}
+
+		if localSHA != remoteSHA {
+			// SHAs are different, pull remote state
+			if err := aws.RefreshState(lockInfo, bucket, key); err != nil {
+				log.Errorf("failed to refresh state: %v", err)
+				os.Exit(1)
+			}
+			fmt.Println("State refreshed successfully. Local state is up-to-date with remote state.")
+		} else {
+			fmt.Println("Local state is already up-to-date with remote state.")
+		}
 	},
 }
 
@@ -90,7 +130,17 @@ Example:
 		log.Debug("Running lock sync command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Implementation for syncing state to S3 goes here
-		cmd.Println("dbtmgr state synced")
+		localSHA, err := subproc.FetchLocalSHA()
+		if err != nil {
+			log.Errorf("failed to fetch local git SHA: %v", err)
+			os.Exit(1)
+		}
+
+		// Sync the local state to the remote state
+		if err := aws.SyncState(localSHA, bucket, key); err != nil {
+			log.Errorf("failed to sync state: %v", err)
+			os.Exit(1)
+		}
+		fmt.Println("State synchronized successfully. Remote state is updated with local changes.")
 	},
 }

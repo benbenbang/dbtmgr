@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -178,4 +179,74 @@ func ReleaseStateLock(ctx context.Context, bucket, key string) error {
 		Key:    awsV2.String(key),
 	})
 	return err
+}
+
+// RefreshState downloads the state file from S3 and writes it to the local file system.
+func RefreshState(localStatePath, bucket, stateFile string) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion("your-region"),
+	)
+	if err != nil {
+		return fmt.Errorf("error loading AWS configuration: %v", err)
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+
+	resp, err := s3Client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(stateFile),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to retrieve state file: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Write the S3 object to the local file system
+	localFile, err := os.Create(localStatePath)
+	if err != nil {
+		return fmt.Errorf("failed to create local file: %v", err)
+	}
+	defer localFile.Close()
+
+	_, err = io.Copy(localFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write state to local file: %v", err)
+	}
+
+	return nil
+}
+
+// SyncState uploads the local state file to the S3 bucket.
+func SyncState(localStatePath, bucket, stateFile string) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion("your-region"),
+	)
+	if err != nil {
+		return fmt.Errorf("error loading AWS configuration: %v", err)
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+
+	localFile, err := os.Open(localStatePath)
+	if err != nil {
+		return fmt.Errorf("failed to open local state file: %v", err)
+	}
+	defer localFile.Close()
+
+	fileInfo, err := localFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get local file stats: %v", err)
+	}
+
+	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket:        awsV2.String(bucket),
+		Key:           awsV2.String(stateFile),
+		Body:          localFile,
+		ContentLength: *awsV2.Int64(fileInfo.Size()),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload state file to S3: %v", err)
+	}
+
+	return nil
 }
