@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "dbtmgr"
+version = "0.1.0"
+description = "DBT state management and synchronization tool"
+authors = ["benbenbang <bn@bitbrew.dev>"]
+license = "Apache License, Version 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pre-commit = "^3.5.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
