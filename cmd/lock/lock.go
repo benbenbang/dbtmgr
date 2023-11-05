@@ -2,17 +2,19 @@ package lock
 
 import (
 	"context"
-	"dbtmgr/internal/aws"
+	"dbtmgr/internal/aws/lock"
+	"dbtmgr/internal/config"
 	"dbtmgr/internal/subproc"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	bucket   string
-	key      string
+	bucket   = config.DBT_STATE_BUCKET
+	key      = config.DBT_LOCK_KEY
 	lockInfo string
 )
 
@@ -37,7 +39,12 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := aws.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
+		lockInfo := lock.LockInfo{
+			LockID:    "dbtmgr",
+			TimeStamp: time.Now().Format(time.RFC3339),
+		}
+
+		if err := lock.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
 			log.Errorf("Failed to acquire lock on S3 state file: %v", err)
 			os.Exit(1)
 		}
@@ -66,7 +73,7 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := aws.ReleaseStateLock(ctx, bucket, key); err != nil {
+		if err := lock.ReleaseStateLock(ctx, bucket, key); err != nil {
 			log.Errorf("Failed to release lock on S3 state file: %v", err)
 			os.Exit(1)
 		}
@@ -101,7 +108,7 @@ Example:
 
 		if localSHA != remoteSHA {
 			// SHAs are different, pull remote state
-			if err := aws.RefreshState(lockInfo, bucket, key); err != nil {
+			if err := lock.RefreshState(lockInfo, bucket, key); err != nil {
 				log.Errorf("failed to refresh state: %v", err)
 				os.Exit(1)
 			}
@@ -137,7 +144,7 @@ Example:
 		}
 
 		// Sync the local state to the remote state
-		if err := aws.SyncState(localSHA, bucket, key); err != nil {
+		if err := lock.SyncState(localSHA, bucket, key); err != nil {
 			log.Errorf("failed to sync state: %v", err)
 			os.Exit(1)
 		}

@@ -2,15 +2,17 @@ package manifest
 
 import (
 	"context"
-	"dbtmgr/internal/aws"
+
+	"dbtmgr/internal/aws/manifest"
+	"dbtmgr/internal/config"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	bucket       string
-	key          string
+	bucket       = config.DBT_STATE_BUCKET
+	key          = config.DBT_STATE_KEY
 	manifestInfo string
 	localPath    string
 )
@@ -30,7 +32,7 @@ automation tools.
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := aws.UploadManifest(ctx, bucket, key, manifestInfo); err != nil {
+		if err := manifest.UploadManifest(ctx, bucket, key, manifestInfo); err != nil {
 			log.Errorf("Failed to upload manifest to S3 bucket: %v", err)
 			os.Exit(1)
 		}
@@ -54,7 +56,7 @@ another user or process.
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := aws.DownloadManifest(ctx, bucket, key, localPath); err != nil {
+		if err := manifest.DownloadManifest(ctx, bucket, key, localPath); err != nil {
 			log.Errorf("Failed to sync state file with S3 bucket: %v", err)
 			os.Exit(1)
 		}
