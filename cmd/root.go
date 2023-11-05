@@ -5,6 +5,7 @@ import (
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"dbtmgr/cmd/lock"
+	"dbtmgr/cmd/manifest"
 )
 
 func init() {
@@ -20,12 +21,21 @@ func init() {
 	)
 
 	lockCmds := []*cobra.Command{lock.AcquireCmd, lock.ReleaseCmd, lock.ForceReleaseCmd}
+	manifestCmds := []*cobra.Command{manifest.UploadCmd, manifest.SyncCmd}
 	mngCmds := []*cobra.Command{versionCmd, updateCmd, completionCmd}
 
 	groups := templates.CommandGroups{
 		{
-			Message:  "Lock Management Commands",
+			Message:  "Lock & Manifest Management Commands",
+			Commands: []*cobra.Command{lock.LockCmd, manifest.ManifestCmd},
+		},
+		{
+			Message:  "Lock Management Subommands",
 			Commands: lockCmds,
+		},
+		{
+			Message:  "Manifest Management Subcommands",
+			Commands: manifestCmds,
 		},
 		{
 			Message:  "Settings Commands",

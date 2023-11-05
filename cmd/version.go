@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"dbtmgr/internal/config"
+
 	"github.com/spf13/cobra"
 )
 
-const CurrentVersion = "0.0.1"
+var CurrentVersion = config.Version
 
 var versionCmd = &cobra.Command{
 	Use:   "version",

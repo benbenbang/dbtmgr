@@ -34,7 +34,8 @@ build-darwin:
 			-ldflags="-s -w \
                 -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
                 -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} " \
+				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
+				-X ${PKG}/internal/config.Version=${Version} " \
 			main.go; \
 		done; \
 	done
@@ -50,7 +51,8 @@ build-linux:
 			-ldflags="-s -w \
                 -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
                 -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} " \
+				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
+				-X ${PKG}/internal/config.Version=${Version} " \
 			main.go; \
 		done; \
 	done
@@ -65,7 +67,8 @@ build-windows:
 			-ldflags="-s -w \
                 -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
                 -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} " \
+				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
+				-X ${PKG}/internal/config.Version=${Version} " \
 			main.go; \
 		done; \
 	done
