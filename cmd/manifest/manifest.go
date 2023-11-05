@@ -20,6 +20,7 @@ var (
 
 func init() {
 	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the manifest")
+	PushCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key for the file to track by Git locally")
 	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", "", "Manifest file to upload")
 
 	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
@@ -54,6 +55,13 @@ automation tools.
 		if err := manifest.UploadManifest(ctx, bucket, manifestPath); err != nil {
 			log.Errorf("Failed to push manifest to S3 bucket: %v", err)
 			os.Exit(1)
+		}
+
+		if keyPrefx := cmd.Flag("key").Value.String(); keyPrefx != "" {
+			if err := manifest.CreateStateJSON(context.Background(), bucket, key, "state.json"); err != nil {
+				log.Errorf("Failed to create state.json file: %v", err)
+				os.Exit(1)
+			}
 		}
 
 		cmd.Println(config.Green("manifest has been successfully uploaded"))

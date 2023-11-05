@@ -2,8 +2,11 @@ package manifest
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -197,4 +200,45 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
 	})
 
 	return err
+}
+
+func CreateStateJSON(ctx context.Context, bucket, key, filePath string) error {
+	// Get the version ID from S3
+	resp, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get object head: %w", err)
+	}
+
+	// Get the current commit SHA from Git
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get git commit SHA: %w", err)
+	}
+	commitSHA := strings.Trim(string(output), "\n")
+
+	// Create the state structure
+	state := State{
+		VersionID: *resp.VersionId,
+		CommitSHA: commitSHA,
+		Bucket:    bucket,
+		Key:       key,
+	}
+
+	// Marshal into JSON
+	stateJSON, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal state: %w", err)
+	}
+
+	// Write to file
+	err = os.WriteFile(filePath, stateJSON, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write state file: %w", err)
+	}
+
+	return nil
 }
