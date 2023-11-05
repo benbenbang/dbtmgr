@@ -47,10 +47,10 @@ func ListManifests(ctx context.Context, bucket, prefix string) ([]string, error)
 }
 
 // DownloadManifest downloads a specific manifest file from an S3 bucket.
-func DownloadManifest(ctx context.Context, bucket, s3FolderPrefix, localFolderPath string) error {
+func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath string) error {
 	paginator := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
-		Prefix: aws.String(s3FolderPrefix),
+		Prefix: aws.String(keyPrefix),
 	})
 
 	for paginator.HasMorePages() {
@@ -100,7 +100,7 @@ func DownloadManifest(ctx context.Context, bucket, s3FolderPrefix, localFolderPa
 }
 
 // UploadManifest uploads a manifest file to an S3 bucket.
-func UploadManifest(ctx context.Context, bucket, localFolderPath, s3KeyPrefix string) error {
+func UploadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath string) error {
 	// Walk the directory tree
 	err := filepath.Walk(localFolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -119,7 +119,7 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath, s3KeyPrefix st
 		defer file.Close()
 
 		// Define the key for the S3 object
-		key := s3KeyPrefix + strings.TrimPrefix(path, localFolderPath)
+		key := keyPrefix + strings.TrimPrefix(path, localFolderPath)
 		key = strings.ReplaceAll(key, string(filepath.Separator), "/") // Ensure key uses '/' for S3
 
 		// Upload to S3

@@ -21,7 +21,6 @@ func init() {
 	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the manifest")
 	PushCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the manifest")
 	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", "", "Manifest file to upload")
-	PushCmd.Flags().StringVarP(&localPath, "local-path", "l", "", "Local path to store the manifest")
 
 	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
 	PullCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
