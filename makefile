@@ -1,8 +1,8 @@
 .EXPORT_ALL_VARIABLES:
-NAME = statemgr
+NAME = statectl
 GOARCH = amd64
 GOARCH-ARM = arm64
-PKG = statemgr
+PKG = statectl
 Version = $(or $(shell cat version.info), "v0.1.0")
 BuildTime = $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 BuildCommit = $(shell git rev-parse HEAD)

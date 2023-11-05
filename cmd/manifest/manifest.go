@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"os"
-	"statemgr/internal/aws/manifest"
-	"statemgr/internal/config"
+	"statectl/internal/aws/manifest"
+	"statectl/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ automation tools.
 			os.Exit(1)
 		}
 
-		cmd.Println("statemgr manifest uploaded")
+		cmd.Println("statectl manifest uploaded")
 	},
 }
 
@@ -61,6 +61,6 @@ another user or process.
 			os.Exit(1)
 		}
 
-		cmd.Println("statemgr manifest synced")
+		cmd.Println("statectl manifest synced")
 	},
 }

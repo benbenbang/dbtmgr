@@ -1,4 +1,4 @@
-module statemgr
+module statectl
 
 go 1.21.3
 

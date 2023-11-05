@@ -2,8 +2,8 @@ package main
 
 import (
 	"os"
-	"statemgr/cmd"
-	"statemgr/internal/logging"
+	"statectl/cmd"
+	"statectl/internal/logging"
 )
 
 func main() {

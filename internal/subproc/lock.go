@@ -10,8 +10,8 @@ import (
 	"os"
 	"os/exec"
 
-	conf "statemgr/internal/config"
-	"statemgr/internal/logging"
+	conf "statectl/internal/config"
+	"statectl/internal/logging"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

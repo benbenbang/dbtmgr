@@ -1,7 +1,7 @@
 package manifest
 
 import (
-	"statemgr/internal/logging"
+	"statectl/internal/logging"
 
 	"github.com/spf13/cobra"
 )

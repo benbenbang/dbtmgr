@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"statemgr/internal/logging"
+	"statectl/internal/logging"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"statemgr/internal/aws/lock"
-	"statemgr/internal/config"
-	"statemgr/internal/subproc"
+	"statectl/internal/aws/lock"
+	"statectl/internal/config"
+	"statectl/internal/subproc"
 	"strings"
 	"time"
 
@@ -31,11 +31,11 @@ modified. If the lock is already present, the command will fail and indicate
 that the state file is in use.
 
 Usage:
-  statemgr lock acquire
+  statectl lock acquire
 
 Example:
   # Acquire a lock on the S3 state file
-  statemgr lock acquire`,
+  statectl lock acquire`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		log.Debug("Running lock acquire command")
 	},
@@ -98,11 +98,11 @@ the state file is no longer being modified and is available for other
 users and processes to modify.
 
 Usage:
-  statemgr lock release
+  statectl lock release
 
 Example:
   # Release the lock on the S3 state file
-  statemgr lock release`,
+  statectl lock release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		log.Debug("Running lock release command")
 	},
@@ -125,11 +125,11 @@ This command should be used with caution as it can disrupt ongoing operations.
 It synchronizes the local state with the latest state from the S3 bucket.
 
 Usage:
-  statemgr lock force-release
+  statectl lock force-release
 
 Example:
   # Prompt for confirmation and then force release the S3 lock
-  statemgr lock force-release`,
+  statectl lock force-release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		log.Debug("Preparing to prompt for lock force-release")
 	},

@@ -3,9 +3,9 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"statemgr/cmd/lock"
-	"statemgr/cmd/manifest"
-	"statemgr/pkg/template"
+	"statectl/cmd/lock"
+	"statectl/cmd/manifest"
+	"statectl/pkg/template"
 )
 
 func init() {
@@ -60,14 +60,14 @@ var DefaultCmd = rootCmd
 // var DefaultCmd = rootCmd
 
 var rootCmd = &cobra.Command{
-	Use:   "statemgr",
+	Use:   "statectl",
 	Short: "DBT state management and synchronization tool",
-	Long: `statemgr is a command-line utility designed to manage, synchronize, and
+	Long: `statectl is a command-line utility designed to manage, synchronize, and
 lock the state files for DBT (Data Build Tool) manifests. It facilitates
 development workflows by ensuring consistent state across multiple environments
 and preventing concurrent operations that could lead to conflicts.
 
-With statemgr, developers or CI can acquire and release locks on the DBT state file
+With statectl, developers or CI can acquire and release locks on the DBT state file
 residing within an S3 bucket, pull the latest state for local comparison, and
 push updates to the remote state safely. It is built to handle the state as a
 source of truth for all schema changes and to help DBT in identifying and running
@@ -79,12 +79,12 @@ release process.
 
 For example, to refresh your local state, run:
 
-  statemgr refresh
+  statectl refresh
 
 To acquire a lock before making changes, use:
 
-  statemgr lock acquire
+  statectl lock acquire
 
-statemgr integrates with CI/CD pipelines, providing a seamless interface for
+statectl integrates with CI/CD pipelines, providing a seamless interface for
 managing DBT states within team development practices.`,
 }
