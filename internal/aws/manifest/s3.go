@@ -2,8 +2,6 @@ package manifest
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // Initialize a global S3 client
@@ -28,8 +25,8 @@ func init() {
 }
 
 // ListManifests lists all manifest files within a specified folder in an S3 bucket.
-func ListManifests(ctx context.Context, bucket, prefix string) ([]string, error) {
-	var manifests []string
+func ListManifests(ctx context.Context, bucket, prefix string) (map[string]interface{}, error) {
+	const fileIndicator = "<file>"
 
 	resp, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
@@ -39,11 +36,40 @@ func ListManifests(ctx context.Context, bucket, prefix string) ([]string, error)
 		return nil, err
 	}
 
+	temp := make(map[string]interface{})
+
 	for _, item := range resp.Contents {
-		manifests = append(manifests, *item.Key)
+		key := *item.Key
+		if key == prefix {
+			// Skip the prefix itself
+			continue
+		}
+		// Remove the prefix from the key
+		key = strings.TrimPrefix(key, prefix)
+		parts := strings.Split(key, "/")
+
+		// Navigate/create the map structure according to the key parts
+		currentMap := temp
+		for i, part := range parts {
+			if i == len(parts)-1 {
+				// It's a file, denote it with a special value
+				currentMap[part] = fileIndicator
+			} else {
+				// It's a directory, ensure there is a map for it
+				if currentMap[part] == nil {
+					currentMap[part] = make(map[string]interface{})
+				}
+				if subMap, ok := currentMap[part].(map[string]interface{}); ok {
+					currentMap = subMap
+				}
+			}
+		}
 	}
 
-	return manifests, nil
+	tree := make(map[string]interface{})
+	tree[prefix] = temp[""]
+
+	return tree, nil
 }
 
 // DownloadManifest downloads a specific manifest file from an S3 bucket.
@@ -57,6 +83,22 @@ func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath st
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
+		}
+
+		for _, object := range page.Contents {
+			// Strip the keyPrefix from the S3 object key
+			relativePath := strings.TrimPrefix(*object.Key, keyPrefix)
+
+			// Ensure the relative path does not start with a slash
+			relativePath = strings.TrimLeft(relativePath, "/")
+
+			// Join the localFolderPath with the relativePath
+			outputPath := filepath.Join(localFolderPath, keyPrefix, relativePath)
+
+			// Create any directories as needed
+			if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+				return err
+			}
 		}
 
 		for _, object := range page.Contents {
@@ -99,17 +141,44 @@ func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath st
 	return nil
 }
 
+func ignoreFile(filename string) bool {
+	// Define patterns or specific filenames to ignore
+	ignorePatterns := []string{".DS_Store", "*.tmp", "*/temp/*"}
+
+	for _, pattern := range ignorePatterns {
+		matched, err := filepath.Match(pattern, filepath.Base(filename))
+		if err != nil {
+			// handle error
+			return false
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
 // UploadManifest uploads a manifest file to an S3 bucket.
-func UploadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath string) error {
-	// Walk the directory tree
+func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
+	// Trim the localFolderPath to ensure it ends with a separator
+	// and remove it from the path to get the correct key structure
+	localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator)) + string(filepath.Separator)
+
 	err := filepath.Walk(localFolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		// Skip directories
-		if info.IsDir() {
+
+		// Skip directories and ignored files
+		if info.IsDir() || ignoreFile(path) {
 			return nil
 		}
+
+		relativePath := strings.TrimPrefix(path, localFolderPath)
+		// If you want to keep the 'target' as the root directory in the S3 key, prepend it here
+		key := localFolderPath + relativePath
+		// Replace OS-specific path separators with '/'
+		key = strings.ReplaceAll(key, string(filepath.Separator), "/")
 
 		// Open the file
 		file, err := os.Open(path)
@@ -118,134 +187,14 @@ func UploadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath stri
 		}
 		defer file.Close()
 
-		// Define the key for the S3 object
-		key := keyPrefix + strings.TrimPrefix(path, localFolderPath)
-		key = strings.ReplaceAll(key, string(filepath.Separator), "/") // Ensure key uses '/' for S3
-
-		// Upload to S3
+		// Upload the file to S3
 		_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 			Body:   file,
 		})
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 
 	return err
-}
-
-// AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
-func AcquireStateLock(ctx context.Context, bucket, key, lockInfo string) error {
-	_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Body:   strings.NewReader(lockInfo),
-	})
-	return err
-}
-
-// CheckStateLock reads the state lock file from an S3 bucket.
-func CheckStateLock(ctx context.Context, bucket, key string) (bool, string, error) {
-	resp, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	})
-	if err != nil {
-		var notFound *types.NoSuchKey
-		if errors.As(err, &notFound) {
-			return false, "", nil // Lock does not exist.
-		}
-		return false, "", err // Some other error occurred.
-	}
-	defer resp.Body.Close()
-
-	lockInfo, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, "", err
-	}
-
-	return true, string(lockInfo), nil
-}
-
-// ReleaseStateLock deletes the state lock file or clears its content in an S3 bucket.
-func ReleaseStateLock(ctx context.Context, bucket, key string) error {
-	_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	})
-	return err
-}
-
-// RefreshState downloads the state file from S3 and writes it to the local file system.
-func RefreshState(localStatePath, bucket, stateFile string) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("your-region"),
-	)
-	if err != nil {
-		return fmt.Errorf("error loading AWS configuration: %v", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg)
-
-	resp, err := s3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(stateFile),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to retrieve state file: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Write the S3 object to the local file system
-	localFile, err := os.Create(localStatePath)
-	if err != nil {
-		return fmt.Errorf("failed to create local file: %v", err)
-	}
-	defer localFile.Close()
-
-	_, err = io.Copy(localFile, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write state to local file: %v", err)
-	}
-
-	return nil
-}
-
-// SyncState uploads the local state file to the S3 bucket.
-func SyncState(localStatePath, bucket, stateFile string) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("your-region"),
-	)
-	if err != nil {
-		return fmt.Errorf("error loading AWS configuration: %v", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg)
-
-	localFile, err := os.Open(localStatePath)
-	if err != nil {
-		return fmt.Errorf("failed to open local state file: %v", err)
-	}
-	defer localFile.Close()
-
-	fileInfo, err := localFile.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get local file stats: %v", err)
-	}
-
-	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:        aws.String(bucket),
-		Key:           aws.String(stateFile),
-		Body:          localFile,
-		ContentLength: *aws.Int64(fileInfo.Size()),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to upload state file to S3: %v", err)
-	}
-
-	return nil
 }

@@ -5,26 +5,29 @@ import (
 
 	"os"
 	"statectl/internal/aws/manifest"
+	"statectl/internal/aws/utils"
 	"statectl/internal/config"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	bucket       = config.DBT_STATE_BUCKET
-	key          = config.DBT_STATE_KEY
+	bucket       string
+	key          string
 	manifestPath string
 	localPath    string
 )
 
 func init() {
 	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the manifest")
-	PushCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the manifest")
 	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", "", "Manifest file to upload")
 
 	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
 	PullCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
 	PullCmd.Flags().StringVarP(&localPath, "local-path", "l", "", "Local path to store the manifest")
+
+	ListCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
+	ListCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
 }
 
 var PushCmd = &cobra.Command{
@@ -42,12 +45,18 @@ automation tools.
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := manifest.UploadManifest(ctx, bucket, key, manifestPath); err != nil {
+		bucket, manifestPath, err := utils.GetS3BucketAndManifest(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			os.Exit(1)
+		}
+
+		if err := manifest.UploadManifest(ctx, bucket, manifestPath); err != nil {
 			log.Errorf("Failed to push manifest to S3 bucket: %v", err)
 			os.Exit(1)
 		}
 
-		cmd.Println("statectl manifest uploaded")
+		cmd.Println(config.Green("manifest has been successfully uploaded"))
 	},
 }
 
@@ -66,11 +75,46 @@ another user or process.
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
+		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			os.Exit(1)
+		}
+
 		if err := manifest.DownloadManifest(ctx, bucket, key, localPath); err != nil {
 			log.Errorf("Failed to sync state file with S3 bucket: %v", err)
 			os.Exit(1)
 		}
 
-		cmd.Println("statectl manifest downloaded")
+		cmd.Println(config.Green("manifest has been successfully downloaded"))
+	},
+}
+
+var ListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List manifest in the S3 bucket",
+	Long: `List manifest in the S3 bucket to show all the files in the given key.
+This command lists all the manifest files in the specified S3 bucket & key.
+`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		log.Debug("Running manifest list command")
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+
+		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			os.Exit(1)
+		}
+
+		info, err := manifest.ListManifests(ctx, bucket, key)
+
+		if err != nil {
+			log.Errorf("Failed to list manifest in S3 bucket: %v", err)
+			os.Exit(1)
+		}
+
+		utils.PrintTree(info, "")
 	},
 }

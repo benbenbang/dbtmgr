@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"statectl/internal/aws/lock"
+	"statectl/internal/aws/utils"
 	"statectl/internal/config"
 	"statectl/internal/subproc"
 	"strings"
@@ -17,9 +18,20 @@ import (
 )
 
 var (
-	bucket = config.DBT_STATE_BUCKET
-	key    = config.DBT_LOCK_KEY
+	bucket string
+	key    string
 )
+
+func init() {
+	AcquireCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
+	AcquireCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+
+	ReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
+	ReleaseCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+
+	ForceReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
+	ForceReleaseCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+}
 
 var AcquireCmd = &cobra.Command{
 	Use:   "acquire",
@@ -42,7 +54,12 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		extra_comment := ""
-		var err error
+
+		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			os.Exit(1)
+		}
 
 		commit_sha := os.Getenv("CI_COMMIT_SHA")
 		cs_comment := "ok"
@@ -109,6 +126,12 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
+		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			os.Exit(1)
+		}
+
 		if err := lock.ReleaseStateLock(ctx, bucket, key); err != nil {
 			cmd.PrintErrf("Failed to release lock: %v\n", err)
 			os.Exit(1)
@@ -134,6 +157,12 @@ Example:
 		log.Debug("Preparing to prompt for lock force-release")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		if err != nil {
+			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			os.Exit(1)
+		}
+
 		if exist, _, err := lock.CheckStateLock(context.Background(), bucket, key, false); err != nil {
 			cmd.PrintErrf(config.Red("Failed to check lock status: %v\n", err))
 			os.Exit(1)
@@ -155,7 +184,7 @@ Example:
 		}
 
 		// User confirmed, proceed with force release
-		err := lock.ForceReleaseLock(ctx, bucket, key)
+		err = lock.ForceReleaseLock(ctx, bucket, key)
 		if err != nil {
 			cmd.PrintErrf(config.Red("Failed to forcefully release lock on S3 state file: %v\n", err))
 			os.Exit(1)
