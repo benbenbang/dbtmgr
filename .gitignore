@@ -144,3 +144,5 @@ _vendor*
 # Project Level 👇
 # Remove the existed one or use anti pattern ! to allow some patterns if needed
 !cmd/manifest/*.go
+.envrc
+statectl

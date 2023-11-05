@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"dbtmgr/internal/logging"
+	"statectl/internal/logging"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -11,8 +11,7 @@ func init() {
 	LockCmd.AddCommand(
 		AcquireCmd,
 		ReleaseCmd,
-		RefreshCmd,
-		SyncCmd,
+		ForceReleaseCmd,
 	)
 
 	var verbose bool

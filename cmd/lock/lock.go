@@ -1,19 +1,24 @@
 package lock
 
 import (
+	"bufio"
 	"context"
-	"dbtmgr/internal/aws"
-	"dbtmgr/internal/subproc"
+	"errors"
 	"fmt"
 	"os"
+	"statectl/internal/aws/lock"
+	"statectl/internal/config"
+	"statectl/internal/subproc"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
 var (
-	bucket   string
-	key      string
-	lockInfo string
+	bucket = config.DBT_STATE_BUCKET
+	key    = config.DBT_LOCK_KEY
 )
 
 var AcquireCmd = &cobra.Command{
@@ -26,23 +31,61 @@ modified. If the lock is already present, the command will fail and indicate
 that the state file is in use.
 
 Usage:
-  dbtmgr lock acquire
+  statectl lock acquire
 
 Example:
   # Acquire a lock on the S3 state file
-  dbtmgr lock acquire`,
+  statectl lock acquire`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		log.Debug("Running lock acquire command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
+		extra_comment := ""
+		var err error
 
-		if err := aws.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
-			log.Errorf("Failed to acquire lock on S3 state file: %v", err)
+		commit_sha := os.Getenv("CI_COMMIT_SHA")
+		cs_comment := "ok"
+		if commit_sha == "" {
+			commit_sha, err = subproc.FetchLocalSHA()
+			if err != nil {
+				commit_sha = uuid.New().String()
+			}
+			cs_comment = "No commit SHA available, using random UUID"
+		}
+
+		trigger_iid := os.Getenv("CI_PIPELINE_IID")
+		ti_comment := "ok"
+		if trigger_iid == "" {
+			trigger_iid = uuid.New().String()
+			ti_comment = "No pipeline ID available, using random UUID"
+		}
+
+		if cs_comment != "ok" || ti_comment != "ok" {
+			extra_comment = "WARNING: one or more environment variables were not found. Use timestamp as reference to check the exact commit and pipeline ID."
+		}
+
+		lockInfo := lock.LockInfo{
+			LockID:    commit_sha,
+			TimeStamp: time.Now().Format(time.RFC3339),
+			Signer:    trigger_iid,
+			Comments: lock.Comments{
+				Commit:  cs_comment,
+				Trigger: ti_comment,
+				Extra:   extra_comment,
+			},
+		}
+
+		if err := lock.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
+			if errors.Is(err, lock.LockExists) {
+				cmd.Println(config.Yellow("Lock already acquired, exiting..."))
+				os.Exit(0)
+			}
+			cmd.PrintErrf(config.Red("Failed to acquire lock: %v\n", err))
 			os.Exit(1)
 		}
 
-		cmd.Println("dbtmgr lock acquired")
+		cmd.Println(config.Green("Lock acquired successfully."))
 	},
 }
 
@@ -55,92 +98,68 @@ the state file is no longer being modified and is available for other
 users and processes to modify.
 
 Usage:
-  dbtmgr lock release
+  statectl lock release
 
 Example:
   # Release the lock on the S3 state file
-  dbtmgr lock release`,
+  statectl lock release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		log.Debug("Running lock release command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := aws.ReleaseStateLock(ctx, bucket, key); err != nil {
-			log.Errorf("Failed to release lock on S3 state file: %v", err)
+		if err := lock.ReleaseStateLock(ctx, bucket, key); err != nil {
+			cmd.PrintErrf("Failed to release lock: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Println("Lock released successfully.")
 	},
 }
 
-var RefreshCmd = &cobra.Command{
-	Use:   "refresh",
-	Short: "Update local manifest from the S3 bucket",
-	Long: `Fetch the latest state of the DBT manifest from the S3 bucket
-and update the local manifest accordingly. This ensures that the local
-workspace is in sync with the shared state and reflects any changes
-that have been made by others.
+var ForceReleaseCmd = &cobra.Command{
+	Use:   "force-release",
+	Short: "Force release the S3 lock with confirmation",
+	Long: `Forcefully releases the lock on the S3 state file after user confirmation.
+This command should be used with caution as it can disrupt ongoing operations.
+It synchronizes the local state with the latest state from the S3 bucket.
 
 Usage:
-  dbtmgr refresh
+  statectl lock force-release
 
 Example:
-  # Refresh local state to match the S3 bucket state
-  dbtmgr refresh`,
+  # Prompt for confirmation and then force release the S3 lock
+  statectl lock force-release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		log.Debug("Running lock refresh command")
+		log.Debug("Preparing to prompt for lock force-release")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if the local and remote SHAs are different
-		localSHA, remoteSHA, err := subproc.CompareSHAs()
+		if exist, _, err := lock.CheckStateLock(context.Background(), bucket, key, false); err != nil {
+			cmd.PrintErrf(config.Red("Failed to check lock status: %v\n", err))
+			os.Exit(1)
+		} else if !exist {
+			cmd.PrintErrf(config.Red("Lock does not exist. Nothing to release.\n"))
+			os.Exit(1)
+		}
+
+		ctx := context.Background()
+		reader := bufio.NewReader(os.Stdin)
+
+		cmd.Println(config.Yellow("WARNING: You are about to forcefully remove the remote lock file. This may disrupt ongoing operations."))
+		cmd.Print("Are you sure you want to proceed? (type 'yes' to confirm): ")
+
+		confirmation, _ := reader.ReadString('\n')
+		if strings.TrimSpace(confirmation) != "yes" {
+			fmt.Println("Force release cancelled.")
+			return
+		}
+
+		// User confirmed, proceed with force release
+		err := lock.ForceReleaseLock(ctx, bucket, key)
 		if err != nil {
-			log.Errorf("failed to compare SHAs: %v", err)
+			cmd.PrintErrf(config.Red("Failed to forcefully release lock on S3 state file: %v\n", err))
 			os.Exit(1)
 		}
-
-		if localSHA != remoteSHA {
-			// SHAs are different, pull remote state
-			if err := aws.RefreshState(lockInfo, bucket, key); err != nil {
-				log.Errorf("failed to refresh state: %v", err)
-				os.Exit(1)
-			}
-			fmt.Println("State refreshed successfully. Local state is up-to-date with remote state.")
-		} else {
-			fmt.Println("Local state is already up-to-date with remote state.")
-		}
-	},
-}
-
-var SyncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync local manifest to the S3 bucket",
-	Long: `Push the local state of the DBT manifest to the S3 bucket
-to synchronize it with the central state. This should typically be done
-after acquiring a lock and making changes to ensure that the shared state
-is updated correctly.
-
-Usage:
-  dbtmgr sync
-
-Example:
-  # Sync local state to the S3 bucket
-  dbtmgr sync`,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		log.Debug("Running lock sync command")
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		localSHA, err := subproc.FetchLocalSHA()
-		if err != nil {
-			log.Errorf("failed to fetch local git SHA: %v", err)
-			os.Exit(1)
-		}
-
-		// Sync the local state to the remote state
-		if err := aws.SyncState(localSHA, bucket, key); err != nil {
-			log.Errorf("failed to sync state: %v", err)
-			os.Exit(1)
-		}
-		fmt.Println("State synchronized successfully. Remote state is updated with local changes.")
+		fmt.Println(config.Green("Lock forcefully released successfully."))
 	},
 }

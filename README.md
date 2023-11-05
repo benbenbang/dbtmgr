@@ -1,6 +1,6 @@
-# `dbtmgr` CLI Tool
+# `statectl` CLI Tool
 
-`dbtmgr` is a command-line interface (CLI) tool designed to manage and synchronize database table schema states for development teams using `dbt` (data build tool). It ensures that schema changes are tracked and versioned, and enables developers to acquire exclusive locks on the state during updates to prevent concurrent conflicts.
+`statectl` is a command-line interface (CLI) tool designed to manage and synchronize database table schema states for development teams using `dbt` (data build tool). It ensures that schema changes are tracked and versioned, and enables developers to acquire exclusive locks on the state during updates to prevent concurrent conflicts.
 
 
 
@@ -15,17 +15,17 @@
 
 ## Installation
 
-To install `dbtmgr`, you can use `go get`:
+To install `statectl`, you can use `go get`:
 
 ```bash
-go get github.com/yourusername/dbtmgr
+go get github.com/yourusername/statectl
 ```
 
 Alternatively, you can clone the repository and build from source:
 
 ```bash
-git clone https://github.com/yourusername/dbtmgr.git
-cd dbtmgr
+git clone https://github.com/yourusername/statectl.git
+cd statectl
 go build .
 ```
 
@@ -33,32 +33,32 @@ go build .
 
 ## Usage
 
-Before using `dbtmgr`, ensure you have configured your AWS credentials and have the necessary permissions to read from and write to the specified S3 bucket.
+Before using `statectl`, ensure you have configured your AWS credentials and have the necessary permissions to read from and write to the specified S3 bucket.
 
 ### Common Commands
 
-- `dbtmgr acquire`: Acquires a lock on the state file within the S3 bucket to prevent others from making concurrent state changes.
-- `dbtmgr release`: Releases the lock on the state file within the S3 bucket.
-- `dbtmgr refresh`: Pulls the latest state from the S3 bucket to your local environment.
-- `dbtmgr sync`: Pushes the local state changes to the S3 bucket.
+- `statectl acquire`: Acquires a lock on the state file within the S3 bucket to prevent others from making concurrent state changes.
+- `statectl release`: Releases the lock on the state file within the S3 bucket.
+- `statectl refresh`: Pulls the latest state from the S3 bucket to your local environment.
+- `statectl sync`: Pushes the local state changes to the S3 bucket.
 
 ### Examples
 
 Acquire / Release / Refresh / Sync a lock:
 
 ```bash
-dbtmgr lock acquire
-dbtmgr lock release
-dbtmgr lock refresh
-dbtmgr lock sync
+statectl lock acquire
+statectl lock release
+statectl lock refresh
+statectl lock sync
 ```
 
 
 
 ## Contributing
 
-Contributions to `dbtmgr` are welcome! Please fork the repository and submit a pull request with your changes or improvements.
+Contributions to `statectl` are welcome! Please fork the repository and submit a pull request with your changes or improvements.
 
 ## License
 
-`dbtmgr` is released under the Apache License. See the LICENSE file for more details.
+`statectl` is released under the Apache License. See the LICENSE file for more details.

@@ -1,4 +1,4 @@
-package aws
+package manifest
 
 import (
 	"context"
@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	awsV2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 // Initialize a global S3 client
@@ -33,8 +32,8 @@ func ListManifests(ctx context.Context, bucket, prefix string) ([]string, error)
 	var manifests []string
 
 	resp, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: awsV2.String(bucket),
-		Prefix: awsV2.String(prefix),
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
 	})
 	if err != nil {
 		return nil, err
@@ -142,8 +141,8 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath, s3KeyPrefix st
 // AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
 func AcquireStateLock(ctx context.Context, bucket, key, lockInfo string) error {
 	_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: awsV2.String(bucket),
-		Key:    awsV2.String(key),
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
 		Body:   strings.NewReader(lockInfo),
 	})
 	return err
@@ -152,8 +151,8 @@ func AcquireStateLock(ctx context.Context, bucket, key, lockInfo string) error {
 // CheckStateLock reads the state lock file from an S3 bucket.
 func CheckStateLock(ctx context.Context, bucket, key string) (bool, string, error) {
 	resp, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: awsV2.String(bucket),
-		Key:    awsV2.String(key),
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
 	})
 	if err != nil {
 		var notFound *types.NoSuchKey
@@ -175,8 +174,8 @@ func CheckStateLock(ctx context.Context, bucket, key string) (bool, string, erro
 // ReleaseStateLock deletes the state lock file or clears its content in an S3 bucket.
 func ReleaseStateLock(ctx context.Context, bucket, key string) error {
 	_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: awsV2.String(bucket),
-		Key:    awsV2.String(key),
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
 	})
 	return err
 }
@@ -239,10 +238,10 @@ func SyncState(localStatePath, bucket, stateFile string) error {
 	}
 
 	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:        awsV2.String(bucket),
-		Key:           awsV2.String(stateFile),
+		Bucket:        aws.String(bucket),
+		Key:           aws.String(stateFile),
 		Body:          localFile,
-		ContentLength: *awsV2.Int64(fileInfo.Size()),
+		ContentLength: *aws.Int64(fileInfo.Size()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload state file to S3: %v", err)
