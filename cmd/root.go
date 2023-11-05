@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/kubectl/pkg/util/templates"
 
 	"dbtmgr/cmd/lock"
 	"dbtmgr/cmd/manifest"
+	"dbtmgr/pkg/template"
 )
 
 func init() {
@@ -24,29 +24,34 @@ func init() {
 	manifestCmds := []*cobra.Command{manifest.UploadCmd, manifest.SyncCmd}
 	mngCmds := []*cobra.Command{versionCmd, updateCmd, completionCmd}
 
-	groups := templates.CommandGroups{
-		{
-			Message:  "Lock & Manifest Management Commands",
+	cmdGroup := template.CreatCmdGroup(
+		template.CmdTemplate{
+			Title:    "Lock & Management Commands",
 			Commands: []*cobra.Command{lock.LockCmd, manifest.ManifestCmd},
 		},
-		{
-			Message:  "Lock Management Subommands",
+		template.CmdTemplate{
+			Title:    "Lock Managment Subcommands",
 			Commands: lockCmds,
 		},
-		{
-			Message:  "Manifest Management Subcommands",
+		template.CmdTemplate{
+			Title:    "Manifest Managment Subcommands",
 			Commands: manifestCmds,
 		},
-		{
-			Message:  "Settings Commands",
+		template.CmdTemplate{
+			Title:    "Management Commands",
 			Commands: mngCmds,
 		},
-	}
+	)
 
-	templates.ActsAsRootCommand(rootCmd, []string{"options"}, groups...)
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		template.HelpFunc(cmd, cmdGroup)
+	})
+
 }
 
 var DefaultCmd = rootCmd
+
+// var DefaultCmd = rootCmd
 
 var rootCmd = &cobra.Command{
 	Use:   "dbtmgr",
