@@ -7,7 +7,8 @@ import (
 )
 
 func init() {
-	ManifestCmd.AddCommand(UploadCmd)
+	ManifestCmd.AddCommand(PushCmd)
+	ManifestCmd.AddCommand(PullCmd)
 }
 
 var log = logging.GetLogger()

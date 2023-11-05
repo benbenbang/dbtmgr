@@ -15,13 +15,14 @@ func init() {
 
 	rootCmd.AddCommand(
 		lock.LockCmd,
+		manifest.ManifestCmd,
 		versionCmd,
 		updateCmd,
 		completionCmd,
 	)
 
 	lockCmds := []*cobra.Command{lock.AcquireCmd, lock.ReleaseCmd, lock.ForceReleaseCmd}
-	manifestCmds := []*cobra.Command{manifest.UploadCmd, manifest.SyncCmd}
+	manifestCmds := []*cobra.Command{manifest.PushCmd, manifest.PullCmd}
 	mngCmds := []*cobra.Command{versionCmd, updateCmd, completionCmd}
 
 	cmdGroup := template.CreatCmdGroup(
