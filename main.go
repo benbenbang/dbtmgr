@@ -1,9 +1,9 @@
 package main
 
 import (
-	"dbtmgr/cmd"
-	"dbtmgr/internal/logging"
 	"os"
+	"statemgr/cmd"
+	"statemgr/internal/logging"
 )
 
 func main() {

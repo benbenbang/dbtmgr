@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"dbtmgr/internal/logging"
+	"statemgr/internal/logging"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

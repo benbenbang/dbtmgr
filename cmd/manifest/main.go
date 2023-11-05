@@ -1,7 +1,7 @@
 package manifest
 
 import (
-	"dbtmgr/internal/logging"
+	"statemgr/internal/logging"
 
 	"github.com/spf13/cobra"
 )

@@ -10,8 +10,8 @@ import (
 	"os"
 	"os/exec"
 
-	conf "dbtmgr/internal/config"
-	"dbtmgr/internal/logging"
+	conf "statemgr/internal/config"
+	"statemgr/internal/logging"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

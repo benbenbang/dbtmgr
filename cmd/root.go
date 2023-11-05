@@ -3,9 +3,9 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"dbtmgr/cmd/lock"
-	"dbtmgr/cmd/manifest"
-	"dbtmgr/pkg/template"
+	"statemgr/cmd/lock"
+	"statemgr/cmd/manifest"
+	"statemgr/pkg/template"
 )
 
 func init() {
@@ -54,14 +54,14 @@ var DefaultCmd = rootCmd
 // var DefaultCmd = rootCmd
 
 var rootCmd = &cobra.Command{
-	Use:   "dbtmgr",
+	Use:   "statemgr",
 	Short: "DBT state management and synchronization tool",
-	Long: `dbtmgr is a command-line utility designed to manage, synchronize, and
+	Long: `statemgr is a command-line utility designed to manage, synchronize, and
 lock the state files for DBT (Data Build Tool) manifests. It facilitates
 development workflows by ensuring consistent state across multiple environments
 and preventing concurrent operations that could lead to conflicts.
 
-With dbtmgr, developers or CI can acquire and release locks on the DBT state file
+With statemgr, developers or CI can acquire and release locks on the DBT state file
 residing within an S3 bucket, pull the latest state for local comparison, and
 push updates to the remote state safely. It is built to handle the state as a
 source of truth for all schema changes and to help DBT in identifying and running
@@ -73,12 +73,12 @@ release process.
 
 For example, to refresh your local state, run:
 
-  dbtmgr refresh
+  statemgr refresh
 
 To acquire a lock before making changes, use:
 
-  dbtmgr lock acquire
+  statemgr lock acquire
 
-dbtmgr integrates with CI/CD pipelines, providing a seamless interface for
+statemgr integrates with CI/CD pipelines, providing a seamless interface for
 managing DBT states within team development practices.`,
 }

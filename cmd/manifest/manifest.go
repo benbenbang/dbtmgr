@@ -3,9 +3,9 @@ package manifest
 import (
 	"context"
 
-	"dbtmgr/internal/aws/manifest"
-	"dbtmgr/internal/config"
 	"os"
+	"statemgr/internal/aws/manifest"
+	"statemgr/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ automation tools.
 			os.Exit(1)
 		}
 
-		cmd.Println("dbtmgr manifest uploaded")
+		cmd.Println("statemgr manifest uploaded")
 	},
 }
 
@@ -61,6 +61,6 @@ another user or process.
 			os.Exit(1)
 		}
 
-		cmd.Println("dbtmgr manifest synced")
+		cmd.Println("statemgr manifest synced")
 	},
 }

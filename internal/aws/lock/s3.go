@@ -2,11 +2,11 @@ package lock
 
 import (
 	"context"
-	"dbtmgr/internal/subproc"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"statemgr/internal/subproc"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
