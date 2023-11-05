@@ -2,11 +2,11 @@ package lock
 
 import (
 	"context"
+	"dbtmgr/internal/subproc"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,6 +17,7 @@ import (
 
 // Initialize a global S3 client
 var s3Client *s3.Client
+var KeyNotFound *types.NoSuchKey
 
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -29,6 +30,22 @@ func init() {
 
 // AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
 func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo) error {
+	exist, _, err := CheckStateLock(ctx, bucket, key, false)
+	if err != nil {
+		return err
+	}
+
+	if exist {
+		same_sha, err := subproc.CompareSHAs()
+		if err != nil {
+			return fmt.Errorf("unable to acquire lock: lock already exists")
+		}
+		if !same_sha {
+			return fmt.Errorf("unable to acquire lock: lock already exists and it's not owned by this process.\nthis can happen if the lock was created by another process or user.\nplease retry after the lock is released or use the force-acquire command")
+		}
+		return LockExists
+	}
+
 	lockInfoRaw, err := json.Marshal(lockInfo)
 	if err != nil {
 		return err
@@ -43,103 +60,78 @@ func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo
 }
 
 // CheckStateLock reads the state lock file from an S3 bucket.
-func CheckStateLock(ctx context.Context, bucket, key string) (bool, string, error) {
+func CheckStateLock(ctx context.Context, bucket, key string, serialize bool) (bool, LockInfo, error) {
 	resp, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		var notFound *types.NoSuchKey
-		if errors.As(err, &notFound) {
-			return false, "", nil // Lock does not exist.
+		if errors.As(err, &KeyNotFound) {
+			return false, LockInfo{}, nil // Lock does not exist.
 		}
-		return false, "", err // Some other error occurred.
+		return false, LockInfo{}, err // Some other error occurred.
 	}
 	defer resp.Body.Close()
 
-	lockInfo, err := io.ReadAll(resp.Body)
+	lockInfoRaw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, "", err
+		return false, LockInfo{}, err
 	}
 
-	return true, string(lockInfo), nil
+	if !serialize {
+		return true, LockInfo{}, nil
+	}
+
+	lockInfo := LockInfo{}
+	err = json.Unmarshal(lockInfoRaw, &lockInfo)
+	if err != nil {
+		return false, lockInfo, err
+	}
+
+	return true, lockInfo, nil
 }
 
-// ReleaseStateLock deletes the state lock file or clears its content in an S3 bucket.
+// ReleaseStateLock deletes the state lock file in an S3 bucket if it exists.
 func ReleaseStateLock(ctx context.Context, bucket, key string) error {
-	_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	})
+	_, _, err := CheckStateLock(ctx, bucket, key, false)
+	if err != nil {
+		return err
+	}
+
+	same_sha, err := subproc.CompareSHAs()
+	if err != nil {
+		return fmt.Errorf("unable to release lock: %v", err)
+	}
+
+	if !same_sha {
+		return fmt.Errorf("unable to release lock: local and remote SHAs do not match. If you are sure you want to release the lock, use the force-release command")
+	}
+
+	// If the lock file exists, attempt to delete it
+	_, err = s3Client.DeleteObject(
+		ctx,
+		&s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		},
+	)
 	return err
 }
 
-// RefreshState downloads the state file from S3 and writes it to the local file system.
-func RefreshState(localStatePath, bucket, stateFile string) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("your-region"),
+// ForceReleaseLock deletes the state lock file or clears its content in an S3 bucket.
+func ForceReleaseLock(ctx context.Context, bucket, key string) error {
+	_, _, err := CheckStateLock(ctx, bucket, key, false)
+	if err != nil {
+		return err
+	}
+
+	// If the lock file exists, attempt to delete it
+	_, err = s3Client.DeleteObject(
+		ctx,
+		&s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		},
 	)
-	if err != nil {
-		return fmt.Errorf("error loading AWS configuration: %v", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg)
-
-	resp, err := s3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(stateFile),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to retrieve state file: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Write the S3 object to the local file system
-	localFile, err := os.Create(localStatePath)
-	if err != nil {
-		return fmt.Errorf("failed to create local file: %v", err)
-	}
-	defer localFile.Close()
-
-	_, err = io.Copy(localFile, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write state to local file: %v", err)
-	}
-
-	return nil
-}
-
-// SyncState uploads the local state file to the S3 bucket.
-func SyncState(localStatePath, bucket, stateFile string) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("your-region"),
-	)
-	if err != nil {
-		return fmt.Errorf("error loading AWS configuration: %v", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg)
-
-	localFile, err := os.Open(localStatePath)
-	if err != nil {
-		return fmt.Errorf("failed to open local state file: %v", err)
-	}
-	defer localFile.Close()
-
-	fileInfo, err := localFile.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get local file stats: %v", err)
-	}
-
-	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:        aws.String(bucket),
-		Key:           aws.String(stateFile),
-		Body:          localFile,
-		ContentLength: *aws.Int64(fileInfo.Size()),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to upload state file to S3: %v", err)
-	}
-
-	return nil
+	return err
 }

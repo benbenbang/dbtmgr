@@ -19,7 +19,7 @@ func init() {
 		completionCmd,
 	)
 
-	lockCmds := []*cobra.Command{lock.AcquireCmd, lock.ReleaseCmd, lock.RefreshCmd, lock.SyncCmd}
+	lockCmds := []*cobra.Command{lock.AcquireCmd, lock.ReleaseCmd, lock.ForceReleaseCmd}
 	mngCmds := []*cobra.Command{versionCmd, updateCmd, completionCmd}
 
 	groups := templates.CommandGroups{

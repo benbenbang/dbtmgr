@@ -11,8 +11,7 @@ func init() {
 	LockCmd.AddCommand(
 		AcquireCmd,
 		ReleaseCmd,
-		RefreshCmd,
-		SyncCmd,
+		ForceReleaseCmd,
 	)
 
 	var verbose bool
