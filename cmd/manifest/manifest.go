@@ -13,9 +13,20 @@ import (
 var (
 	bucket       = config.DBT_STATE_BUCKET
 	key          = config.DBT_STATE_KEY
-	manifestInfo string
+	manifestPath string
 	localPath    string
 )
+
+func init() {
+	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the manifest")
+	PushCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the manifest")
+	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", "", "Manifest file to upload")
+	PushCmd.Flags().StringVarP(&localPath, "local-path", "l", "", "Local path to store the manifest")
+
+	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
+	PullCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
+	PullCmd.Flags().StringVarP(&localPath, "local-path", "l", "", "Local path to store the manifest")
+}
 
 var PushCmd = &cobra.Command{
 	Use:   "push",
@@ -32,7 +43,7 @@ automation tools.
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		if err := manifest.UploadManifest(ctx, bucket, key, manifestInfo); err != nil {
+		if err := manifest.UploadManifest(ctx, bucket, key, manifestPath); err != nil {
 			log.Errorf("Failed to push manifest to S3 bucket: %v", err)
 			os.Exit(1)
 		}
