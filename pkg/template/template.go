@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -21,13 +22,23 @@ func CreatCmdGroup(cmdTemplates ...CmdTemplate) []CmdTemplate {
 
 func HelpFunc(cmd *cobra.Command, cmdGrp cmdGroup) {
 	out := cmd.OutOrStdout()
+	indentFirstLint := false
 	fmt.Fprintf(out, "%s\n\n", cmd.Long)
 	fmt.Fprintf(out, "Usage:\n  %s\n\n", cmd.UseLine())
 
 	for _, group := range cmdGrp {
 		fmt.Fprintln(out, group.Title)
-		for _, c := range group.Commands {
+		for idx, c := range group.Commands {
 			if c.Runnable() {
+				if strings.TrimSpace(c.Use) == "" {
+					continue
+				}
+
+				if idx == 0 && !indentFirstLint {
+					fmt.Fprintf(out, "  %s\t\t%s\n", c.Name(), c.Short)
+					indentFirstLint = true
+					continue
+				}
 				fmt.Fprintf(out, "  %s\t%s\n", c.Name(), c.Short)
 			}
 		}
