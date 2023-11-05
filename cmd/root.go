@@ -43,8 +43,14 @@ func init() {
 		},
 	)
 
+	// Override the root help function
+	helpFunc := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		template.HelpFunc(cmd, cmdGroup)
+		if cmd.Parent() == nil {
+			template.HelpFunc(cmd, cmdGroup)
+		} else {
+			helpFunc(cmd, args)
+		}
 	})
 
 }
