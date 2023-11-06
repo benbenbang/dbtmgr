@@ -32,10 +32,7 @@ build-darwin:
 			mkdir -p ./build; \
 			GOOS=darwin GOARCH=$${ARCH} go build -p ${CORES} -v -o ./build/$${BINARY_NAME}-darwin-$${ARCH} \
 			-ldflags="-s -w \
-                -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
-                -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
-				-X ${PKG}/internal/config.Version=${Version} " \
+				-X ${PKG}/internal/config.Version=v${Version} " \
 			main.go; \
 		done; \
 	done
@@ -49,10 +46,7 @@ build-linux:
 			mkdir -p ./build; \
 			GOOS=linux GOARCH=$${ARCH} go build -p ${CORES} -v -o ./build/$${BINARY_NAME}-linux-$${ARCH} \
 			-ldflags="-s -w \
-                -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
-                -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
-				-X ${PKG}/internal/config.Version=${Version} " \
+				-X ${PKG}/internal/config.Version=v${Version} " \
 			main.go; \
 		done; \
 	done
@@ -65,10 +59,7 @@ build-windows:
 			mkdir -p ./build; \
 			GOOS=windows GOARCH=$${ARCH} go build -p ${CORES} -v -o ./build/$${BINARY_NAME}-windows-$${ARCH}.exe \
 			-ldflags="-s -w \
-                -X ${PKG}/internal/config.DBT_STATE_BUCKET=${DBT_STATE_BUCKET} \
-                -X ${PKG}/internal/config.DBT_STATE_KEY=${DBT_STATE_KEY} \
-				-X ${PKG}/internal/config.DBT_LOCK_KEY=${DBT_LOCK_KEY} \
-				-X ${PKG}/internal/config.Version=${Version} " \
+				-X ${PKG}/internal/config.Version=v${Version} " \
 			main.go; \
 		done; \
 	done
