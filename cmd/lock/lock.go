@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -23,14 +24,14 @@ var (
 )
 
 func init() {
-	AcquireCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
-	AcquireCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+	AcquireCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket to store the lock file")
+	AcquireCmd.Flags().StringVarP(&key, "key", "k", viper.GetString("LOCK_KEY_PATH"), "S3 key to store the lock file")
 
-	ReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
-	ReleaseCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+	ReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket to store the lock file")
+	ReleaseCmd.Flags().StringVarP(&key, "key", "k", viper.GetString("LOCK_KEY_PATH"), "S3 key to store the lock file")
 
-	ForceReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the lock file")
-	ForceReleaseCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key to store the lock file")
+	ForceReleaseCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket to store the lock file")
+	ForceReleaseCmd.Flags().StringVarP(&key, "key", "k", viper.GetString("LOCK_KEY_PATH"), "S3 key to store the lock file")
 }
 
 var AcquireCmd = &cobra.Command{
@@ -57,18 +58,20 @@ Example:
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket and key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, key)
 
 		commit_sha := os.Getenv("CI_COMMIT_SHA")
 		cs_comment := "ok"
 		if commit_sha == "" {
 			commit_sha, err = subproc.FetchLocalSHA()
+			cs_comment = "No CI commit SHA available, using local commit SHA"
 			if err != nil {
 				commit_sha = uuid.New().String()
+				cs_comment = "No commit SHA available, using random UUID"
 			}
-			cs_comment = "No commit SHA available, using random UUID"
 		}
 
 		trigger_iid := os.Getenv("CI_PIPELINE_IID")
@@ -98,7 +101,7 @@ Example:
 				cmd.Println(config.Yellow("Lock already acquired, exiting..."))
 				os.Exit(0)
 			}
-			cmd.PrintErrf(config.Red("Failed to acquire lock: %v\n", err))
+			cmd.PrintErrln(config.Red("❌ Failed to acquire lock: ", err))
 			os.Exit(1)
 		}
 
@@ -128,15 +131,16 @@ Example:
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket and key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, key)
 
 		if err := lock.ReleaseStateLock(ctx, bucket, key); err != nil {
-			cmd.PrintErrf("Failed to release lock: %v\n", err)
+			cmd.PrintErrln(config.Red("❌ Failed to release lock: ", err))
 			os.Exit(1)
 		}
-		fmt.Println("Lock released successfully.")
+		fmt.Println(config.Green("Lock released successfully."))
 	},
 }
 
@@ -159,15 +163,16 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket and key: %v", err)
+			cmd.PrintErrln(config.Red("Failed to get S3 bucket and key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, key)
 
 		if exist, _, err := lock.CheckStateLock(context.Background(), bucket, key, false); err != nil {
-			cmd.PrintErrf(config.Red("Failed to check lock status: %v\n", err))
+			cmd.PrintErrln(config.Red("❌ Failed to check lock status: ", err))
 			os.Exit(1)
 		} else if !exist {
-			cmd.PrintErrf(config.Red("Lock does not exist. Nothing to release.\n"))
+			cmd.PrintErrln(config.Red("❌ Lock does not exist. Nothing to release."))
 			os.Exit(1)
 		}
 
@@ -175,18 +180,18 @@ Example:
 		reader := bufio.NewReader(os.Stdin)
 
 		cmd.Println(config.Yellow("WARNING: You are about to forcefully remove the remote lock file. This may disrupt ongoing operations."))
-		cmd.Print("Are you sure you want to proceed? (type 'yes' to confirm): ")
+		cmd.Println(config.Cyan("Are you sure you want to proceed? (type 'yes' to confirm): "))
 
 		confirmation, _ := reader.ReadString('\n')
 		if strings.TrimSpace(confirmation) != "yes" {
-			fmt.Println("Force release cancelled.")
+			cmd.Println(config.Yellow("Force release cancelled."))
 			return
 		}
 
 		// User confirmed, proceed with force release
 		err = lock.ForceReleaseLock(ctx, bucket, key)
 		if err != nil {
-			cmd.PrintErrf(config.Red("Failed to forcefully release lock on S3 state file: %v\n", err))
+			cmd.PrintErrln(config.Red("Failed to force release lock: ", err))
 			os.Exit(1)
 		}
 		fmt.Println(config.Green("Lock forcefully released successfully."))

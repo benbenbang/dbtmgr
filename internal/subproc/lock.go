@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 
-	conf "statectl/internal/config"
 	"statectl/internal/logging"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -23,9 +22,6 @@ type LockInfo struct {
 	LockID string `json:"lock_id"`
 }
 
-// Assuming the S3 bucket and object key for the state lock file
-var bucketName = conf.DBT_STATE_BUCKET
-var stateLockFile = conf.DBT_LOCK_KEY
 var KeyNotFound *types.NoSuchKey
 var log = logging.GetLogger()
 
@@ -41,16 +37,13 @@ func FetchLocalSHA() (string, error) {
 }
 
 // FetchRemoteSHA fetches the git commit SHA from the state lock file in the S3 bucket.
-func FetchRemoteSHA() (string, error) {
+func FetchRemoteSHA(bucket, key string) (string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		panic("configuration error, " + err.Error())
 	}
 
 	s3Client := s3.NewFromConfig(cfg)
-	bucket := bucketName
-	key := stateLockFile
-
 	resp, err := s3Client.GetObject(
 		context.Background(),
 		&s3.GetObjectInput{
@@ -81,7 +74,7 @@ func FetchRemoteSHA() (string, error) {
 }
 
 // CompareSHAs compares the local and remote git commit SHAs and returns them.
-func CompareSHAs() (bool, error) {
+func CompareSHAs(bucket, key string) (bool, error) {
 	var localSHA, remoteSHA string
 	var err error
 
@@ -95,7 +88,7 @@ func CompareSHAs() (bool, error) {
 		localSHA = CI_COMMIT_SHA
 	}
 
-	remoteSHA, err = FetchRemoteSHA()
+	remoteSHA, err = FetchRemoteSHA(bucket, key)
 	if err != nil {
 		return false, err
 	}

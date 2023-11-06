@@ -9,26 +9,29 @@ import (
 	"statectl/internal/config"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
 	bucket       string
-	key          string
 	manifestPath string
+	statePath    string
 	localPath    string
+	evidencePath string
 )
 
 func init() {
-	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket to store the manifest")
-	PushCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key for the file to track by Git locally")
-	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", "", "Manifest file to upload")
+	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket to store the manifest")
+	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", viper.GetString("MANIFEST_KEY_PATH"), "S3 key point to the bucket key that stores store the manifest")
+	PushCmd.Flags().StringVarP(&statePath, "state", "s", viper.GetString("STATE_KEY_PATH"), "S3 key point to a specific file in the bucket, e.g. artifacts/manifest.json, which will be tracked in the local state.json file")
+	PushCmd.Flags().StringVarP(&evidencePath, "evidence", "e", "evidence.json", "Local path to store the envidence file which is for tracking the manifest")
 
-	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
-	PullCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
+	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket point to the bucket name that stores the manifest")
+	PullCmd.Flags().StringVarP(&manifestPath, "manifest", "m", viper.GetString("MANIFEST_KEY_PATH"), "S3 key point to the bucket key that stores store the manifest")
 	PullCmd.Flags().StringVarP(&localPath, "local-path", "l", "", "Local path to store the manifest")
 
-	ListCmd.Flags().StringVarP(&bucket, "bucket", "b", bucket, "S3 bucket point to the bucket name that stores the manifest")
-	ListCmd.Flags().StringVarP(&key, "key", "k", key, "S3 key point to the bucket key that stores store the manifest")
+	ListCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket point to the bucket name that stores the manifest")
+	ListCmd.Flags().StringVarP(&manifestPath, "manifest", "m", viper.GetString("MANIFEST_KEY_PATH"), "S3 key point to the bucket key that stores store the manifest")
 }
 
 var PushCmd = &cobra.Command{
@@ -48,18 +51,21 @@ automation tools.
 
 		bucket, manifestPath, err := utils.GetS3BucketAndManifest(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket/key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, manifestPath)
 
 		if err := manifest.UploadManifest(ctx, bucket, manifestPath); err != nil {
-			log.Errorf("Failed to push manifest to S3 bucket: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to upload the manifest to S3 bucket: ", err))
 			os.Exit(1)
 		}
 
-		if keyPrefx := cmd.Flag("key").Value.String(); keyPrefx != "" {
-			if err := manifest.CreateStateJSON(context.Background(), bucket, key, "state.json"); err != nil {
-				log.Errorf("Failed to create state.json file: %v", err)
+		if statePath := cmd.Flag("state").Value.String(); statePath != "" {
+			evidencePath := cmd.Flag("evidence").Value.String()
+			log.Debugf("S3 bucket/key: %s/%s. Local evidence path: %s\n", bucket, statePath, evidencePath)
+			if err := manifest.CreateStateJSON(context.Background(), bucket, statePath, evidencePath); err != nil {
+				cmd.PrintErrln(config.Red("❌ Failed to create the evidence json file: ", err))
 				os.Exit(1)
 			}
 		}
@@ -85,12 +91,13 @@ another user or process.
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket/key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, key)
 
 		if err := manifest.DownloadManifest(ctx, bucket, key, localPath); err != nil {
-			log.Errorf("Failed to sync state file with S3 bucket: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to download the manifest from S3 bucket: ", err))
 			os.Exit(1)
 		}
 
@@ -112,14 +119,15 @@ This command lists all the manifest files in the specified S3 bucket & key.
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
-			log.Errorf("Failed to get S3 bucket/key: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket/key: ", err))
 			os.Exit(1)
 		}
+		log.Debug("S3 bucket/key: ", bucket, key)
 
 		info, err := manifest.ListManifests(ctx, bucket, key)
 
 		if err != nil {
-			log.Errorf("Failed to list manifest in S3 bucket: %v", err)
+			cmd.PrintErrln(config.Red("❌ Failed to list the manifest from S3 bucket: ", err))
 			os.Exit(1)
 		}
 
