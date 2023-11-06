@@ -146,3 +146,4 @@ _vendor*
 !cmd/manifest/*.go
 .envrc
 statectl
+version.info
