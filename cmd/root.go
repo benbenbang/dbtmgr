@@ -5,11 +5,13 @@ import (
 
 	"statectl/cmd/lock"
 	"statectl/cmd/manifest"
+	"statectl/internal/config"
 	"statectl/pkg/template"
 )
 
 func init() {
 	var verbose bool
+	config.Initialize()
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set verbose output")
 

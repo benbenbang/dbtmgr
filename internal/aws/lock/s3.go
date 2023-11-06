@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"statectl/internal/logging"
 	"statectl/internal/subproc"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 // Initialize a global S3 client
 var s3Client *s3.Client
 var KeyNotFound *types.NoSuchKey
+var log = logging.GetLogger()
 
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -36,7 +38,7 @@ func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo
 	}
 
 	if exist {
-		same_sha, err := subproc.CompareSHAs()
+		same_sha, err := subproc.CompareSHAs(bucket, key)
 		if err != nil {
 			return fmt.Errorf("unable to acquire lock: lock already exists")
 		}
@@ -50,6 +52,7 @@ func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo
 	if err != nil {
 		return err
 	}
+	log.Debugf("Raw lock info: %s\n", lockInfoRaw)
 
 	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
@@ -77,6 +80,7 @@ func CheckStateLock(ctx context.Context, bucket, key string, serialize bool) (bo
 	if err != nil {
 		return false, LockInfo{}, err
 	}
+	log.Debugf("Raw lock info: %s\n", lockInfoRaw)
 
 	if !serialize {
 		return true, LockInfo{}, nil
@@ -98,7 +102,7 @@ func ReleaseStateLock(ctx context.Context, bucket, key string) error {
 		return err
 	}
 
-	same_sha, err := subproc.CompareSHAs()
+	same_sha, err := subproc.CompareSHAs(bucket, key)
 	if err != nil {
 		return fmt.Errorf("unable to release lock: %v", err)
 	}
