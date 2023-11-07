@@ -111,3 +111,35 @@ func TestReleaseStateLock(t *testing.T) {
 	// Assertions
 	mockS3.AssertExpectations(t)
 }
+
+func TestReleaseStateLockForce(t *testing.T) {
+	// Set up
+	ctx := context.Background()
+	mockS3 := new(test.MockS3Client)
+
+	bucket := "test-bucket"
+	key := "test-key"
+	expectedSHA := "1234567890"
+	_, lockInfoRaw := test.CreateLockInfo(expectedSHA)
+
+	// CheckStateLock: GetObject
+	// Mock GetObject
+	mockS3.On("GetObject", mock.AnythingOfType("backgroundCtx"), mock.AnythingOfType("*s3.GetObjectInput"), mock.AnythingOfType("[]func(*s3.Options)")).Return(
+		&s3.GetObjectOutput{
+			Body: io.NopCloser(bytes.NewReader(lockInfoRaw)),
+		}, nil,
+	)
+
+	// Mock DeleteObject
+	mockS3.On("DeleteObject", mock.AnythingOfType("backgroundCtx"), mock.AnythingOfType("*s3.DeleteObjectInput"), mock.AnythingOfType("[]func(*s3.Options)")).Return(
+		&s3.DeleteObjectOutput{}, nil,
+	)
+
+	// Call the function under test
+	if err := lock.ForceReleaseLock(ctx, mockS3, bucket, key); err != nil {
+		t.Errorf("error releasing state lock: %v", err)
+	}
+
+	// Assertions
+	mockS3.AssertExpectations(t)
+}

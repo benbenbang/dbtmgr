@@ -109,7 +109,7 @@ func ReleaseStateLock(ctx context.Context, cli t.S3Client, bucket, key string) e
 }
 
 // ForceReleaseLock deletes the state lock file or clears its content in an S3 bucket.
-func ForceReleaseLock(ctx context.Context, cli *s3.Client, bucket, key string) error {
+func ForceReleaseLock(ctx context.Context, cli t.S3Client, bucket, key string) error {
 	_, _, err := CheckStateLock(ctx, cli, bucket, key, false)
 	if err != nil {
 		return err
