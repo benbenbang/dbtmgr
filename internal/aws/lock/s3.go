@@ -88,11 +88,6 @@ func CheckStateLock(ctx context.Context, cli t.S3Client, bucket, key string, ser
 
 // ReleaseStateLock deletes the state lock file in an S3 bucket if it exists.
 func ReleaseStateLock(ctx context.Context, cli t.S3Client, bucket, key string) error {
-	_, _, err := CheckStateLock(ctx, cli, bucket, key, false)
-	if err != nil {
-		return err
-	}
-
 	same_sha, err := subproc.CompareSHAs(ctx, cli, bucket, key)
 	if err != nil {
 		return fmt.Errorf("unable to release lock: %v", err)
@@ -114,7 +109,7 @@ func ReleaseStateLock(ctx context.Context, cli t.S3Client, bucket, key string) e
 }
 
 // ForceReleaseLock deletes the state lock file or clears its content in an S3 bucket.
-func ForceReleaseLock(ctx context.Context, cli *s3.Client, bucket, key string) error {
+func ForceReleaseLock(ctx context.Context, cli t.S3Client, bucket, key string) error {
 	_, _, err := CheckStateLock(ctx, cli, bucket, key, false)
 	if err != nil {
 		return err
