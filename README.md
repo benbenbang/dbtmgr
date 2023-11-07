@@ -18,7 +18,10 @@
 To install `statectl`, you can use `go get`:
 
 ```bash
-go get github.com/yourusername/statectl
+go get github.com/benbenbang/statectl
+
+# or install by
+go install github.com/benbenbang/statectl@latest
 ```
 
 Alternatively, you can clone the repository and build from source:
@@ -37,20 +40,23 @@ Before using `statectl`, ensure you have configured your AWS credentials and hav
 
 ### Common Commands
 
-- `statectl acquire`: Acquires a lock on the state file within the S3 bucket to prevent others from making concurrent state changes.
-- `statectl release`: Releases the lock on the state file within the S3 bucket.
-- `statectl refresh`: Pulls the latest state from the S3 bucket to your local environment.
-- `statectl sync`: Pushes the local state changes to the S3 bucket.
+- `statectl lock acquire`: Acquires a lock on the state file within the S3 bucket to prevent others from making concurrent state changes.
+- `statectl lock release`: Releases the lock on the state file within the S3 bucket.
+- `statectl manifest pull`: Pulls the latest state from the S3 bucket to your local environment.
+- `statectl manifest push`: Pushes the local state changes to the S3 bucket.
 
 ### Examples
 
 Acquire / Release / Refresh / Sync a lock:
 
 ```bash
+# Lock management
 statectl lock acquire
 statectl lock release
-statectl lock refresh
-statectl lock sync
+
+# Manifest management 
+statectl manifest pull
+statectl manifest push
 ```
 
 
