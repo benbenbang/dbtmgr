@@ -51,7 +51,7 @@ automation tools.
 		log.Debug("Running manifest upload command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
 
 		if disableFT, _ := cmd.Flags().GetBool("disable-full-tree"); disableFT {
 			singleStore = true
@@ -65,14 +65,14 @@ automation tools.
 		log.Debug("S3 bucket/key: ", bucket, manifestPath)
 
 		log.Debugf("storing single file: %t\n", singleStore)
-		if err := manifest.UploadManifest(ctx, bucket, manifestPath, singleStore); err != nil {
+		if err := manifest.UploadManifest(context.Background(), cli, bucket, manifestPath, singleStore); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to upload the manifest to S3 bucket: ", err))
 			os.Exit(1)
 		}
 
 		if statePath := cmd.Flag("state").Value.String(); statePath != "" {
 			log.Debugf("S3 bucket/key: %s/%s. Local evidence path: %s\n", bucket, manifestPath, statePath)
-			if err := manifest.CreateStateJSON(context.Background(), bucket, manifestPath, statePath); err != nil {
+			if err := manifest.CreateStateJSON(context.Background(), cli, bucket, manifestPath, statePath); err != nil {
 				cmd.PrintErrln(config.Red("❌ Failed to create the state json file: ", err))
 				os.Exit(1)
 			}
@@ -98,7 +98,7 @@ another user or process.
 		log.Debug("Running manifest pull command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
@@ -107,7 +107,7 @@ another user or process.
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		if err := manifest.DownloadManifest(ctx, bucket, key, localPath); err != nil {
+		if err := manifest.DownloadManifest(context.Background(), cli, bucket, key, localPath); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to download the manifest from S3 bucket: ", err))
 			os.Exit(1)
 		}
@@ -129,7 +129,7 @@ This command lists all the manifest files in the specified S3 bucket & key.
 		log.Debug("Running manifest list command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
 
 		bucket, key, err := utils.GetS3BucketAndManifest(cmd)
 		if err != nil {
@@ -138,7 +138,7 @@ This command lists all the manifest files in the specified S3 bucket & key.
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		info, err := manifest.ListManifests(ctx, bucket, key)
+		info, err := manifest.ListManifests(context.Background(), cli, bucket, key)
 
 		if err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to list the manifest from S3 bucket: ", err))

@@ -14,28 +14,17 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // Initialize a global S3 client
-var s3Client *s3.Client
 var LockExists = errors.New("lock exists")
 
-func init() {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		panic("configuration error, " + err.Error())
-	}
-
-	s3Client = s3.NewFromConfig(cfg)
-}
-
 // ListManifests lists all manifest files within a specified folder in an S3 bucket.
-func ListManifests(ctx context.Context, bucket, prefix string) (map[string]interface{}, error) {
+func ListManifests(ctx context.Context, cli *s3.Client, bucket, prefix string) (map[string]interface{}, error) {
 	const fileIndicator = "<file>"
 
-	resp, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+	resp, err := cli.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
 	})
@@ -80,8 +69,8 @@ func ListManifests(ctx context.Context, bucket, prefix string) (map[string]inter
 }
 
 // DownloadManifest downloads a specific manifest file from an S3 bucket.
-func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath string) error {
-	paginator := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
+func DownloadManifest(ctx context.Context, cli *s3.Client, bucket, keyPrefix, localFolderPath string) error {
+	paginator := s3.NewListObjectsV2Paginator(cli, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(keyPrefix),
 	})
@@ -123,7 +112,7 @@ func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath st
 			}
 
 			// Get the object from S3
-			output, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+			output, err := cli.GetObject(ctx, &s3.GetObjectInput{
 				Bucket: aws.String(bucket),
 				Key:    object.Key,
 			})
@@ -166,7 +155,7 @@ func ignoreFile(filename string) bool {
 }
 
 // UploadManifest uploads a manifest file to an S3 bucket.
-func UploadManifest(ctx context.Context, bucket, localFolderPath string, singleFile bool) error {
+func UploadManifest(ctx context.Context, cli *s3.Client, bucket, localFolderPath string, singleFile bool) error {
 
 	// Get the top-level directory from the localFolderPath
 	if !singleFile {
@@ -207,7 +196,7 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath string, singleF
 		defer file.Close()
 
 		// Upload the file to S3
-		_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
+		_, err = cli.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 			Body:   file,
@@ -218,9 +207,9 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath string, singleF
 	return err
 }
 
-func CreateStateJSON(ctx context.Context, bucket, key, filePath string) error {
+func CreateStateJSON(ctx context.Context, cli *s3.Client, bucket, key, filePath string) error {
 	// Get the version ID from S3
-	resp, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+	resp, err := cli.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
