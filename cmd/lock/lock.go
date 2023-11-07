@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -50,6 +51,9 @@ Example:
   # Acquire a lock on the S3 state file
   statectl lock acquire`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running lock acquire command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -124,6 +128,9 @@ Example:
   # Release the lock on the S3 state file
   statectl lock release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running lock release command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -158,6 +165,9 @@ Example:
   # Prompt for confirmation and then force release the S3 lock
   statectl lock force-release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Preparing to prompt for lock force-release")
 	},
 	Run: func(cmd *cobra.Command, args []string) {

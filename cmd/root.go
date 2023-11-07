@@ -60,13 +60,11 @@ func init() {
 
 var DefaultCmd = rootCmd
 
-// var DefaultCmd = rootCmd
-
 var rootCmd = &cobra.Command{
 	Use:   "statectl",
-	Short: "DBT state management and synchronization tool",
+	Short: "State management and synchronization tool",
 	Long: `statectl is a command-line utility designed to manage, synchronize, and
-lock the state files for DBT (Data Build Tool) manifests. It facilitates
+lock the state files for the manifest files (e.g. Data Build Tool (DBT) manifests). It facilitates
 development workflows by ensuring consistent state across multiple environments
 and preventing concurrent operations that could lead to conflicts.
 
@@ -80,9 +78,9 @@ The tool uses AWS services to manage state files and employs an S3-based locking
 mechanism to prevent concurrent updates, ensuring a smooth and error-free
 release process.
 
-For example, to refresh your local state, run:
+For example, to refresh your local manifest, run:
 
-  statectl refresh
+  statectl manifest pull
 
 To acquire a lock before making changes, use:
 

@@ -3,6 +3,7 @@ package manifest
 import (
 	"statectl/internal/logging"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +24,9 @@ coordinate safe access to the state file among multiple developers or automation
 tools. Use upload to create a new manifest file in the S3 bucket, and list to
 view all manifests in the S3 bucket.`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debugf("Running manifest command group")
 	},
 	Run: func(cmd *cobra.Command, args []string) {

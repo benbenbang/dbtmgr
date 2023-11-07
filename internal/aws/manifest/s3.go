@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"statectl/internal/aws/utils"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -162,14 +163,25 @@ func ignoreFile(filename string) bool {
 }
 
 // UploadManifest uploads a manifest file to an S3 bucket.
-func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
+func UploadManifest(ctx context.Context, bucket, localFolderPath string, singleFile bool) error {
 	// Trim the localFolderPath to ensure it ends with a separator
 	// and remove it from the path to get the correct key structure
-	localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator)) + string(filepath.Separator)
+	localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator))
+
+	if isDir, err := utils.IsDir(localFolderPath); err != nil {
+		return err
+	} else if isDir {
+		localFolderPath += string(filepath.Separator)
+	}
 
 	err := filepath.Walk(localFolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if singleFile && path != localFolderPath {
+			// Skip all files except the root directory
+			return nil
 		}
 
 		// Skip directories and ignored files
