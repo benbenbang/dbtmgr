@@ -1,0 +1,62 @@
+name: 🐛 Statectl Bug
+description: Report a bug or unexpected behavior in Statectl
+labels: [bug, unconfirmed]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for contributing to Statectl! ✊
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Initial Checks
+      description: Just making sure you're really using Statectl
+      options:
+        - label: I confirm that I'm using Statectl
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        Please explain what you're seeing and what you would expect to see.
+        Provide as much detail as possible for quicker problem understanding and resolution. 🙏
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Code
+      description: >
+        If applicable, please add a self-contained,
+        [minimal, reproducible example](https://stackoverflow.com/help/minimal-reproducible-example)
+        demonstrating the bug.
+      placeholder: |
+        statectl xxx ...
+      render: bash
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Golang, verion of Statectl, your applications settings & OS Version
+      description: |
+        Please provide the following infos
+        - Which versions of Golang, Statectl and OS are you using?
+        - What is your application settings?
+
+      render: Text
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: type_of_issue
+    attributes:
+      label: Affected Components
+      description: "Please make sure you provided the following information"
+      options:
+        - label: statectl and golang version
+        - label: "Operating system is provided"
+        - label: Provide IDE screenshot if it's possible
