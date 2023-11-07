@@ -147,3 +147,4 @@ _vendor*
 .envrc
 statectl
 version.info
+state.json

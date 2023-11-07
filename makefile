@@ -8,14 +8,6 @@ BuildTime = $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 BuildCommit = $(shell git rev-parse HEAD)
 CORES = $(or $(shell sysctl -n hw.ncpu), 1)
 
-ifneq (,$$("ls ./.env"))
-include .env
-export $(shell sed 's/=.*//' .env)
-DBT_STATE_BUCKET := $(DBT_STATE_BUCKET)
-DBT_STATE_KEY := $(DBT_STATE_KEY)
-DBT_LOCK_KEY := $(DBT_LOCK_KEY)
-endif
-
 .PHONY: build
 ## Build for all platforms
 build: clean build-darwin build-linux build-windows

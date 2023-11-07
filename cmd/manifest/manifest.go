@@ -8,6 +8,7 @@ import (
 	"statectl/internal/aws/utils"
 	"statectl/internal/config"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -17,14 +18,14 @@ var (
 	manifestPath string
 	statePath    string
 	localPath    string
-	evidencePath string
+	singleStore  bool
 )
 
 func init() {
 	PushCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket to store the manifest")
 	PushCmd.Flags().StringVarP(&manifestPath, "manifest", "m", viper.GetString("MANIFEST_KEY_PATH"), "S3 key point to the bucket key that stores store the manifest")
-	PushCmd.Flags().StringVarP(&statePath, "state", "s", viper.GetString("STATE_KEY_PATH"), "S3 key point to a specific file in the bucket, e.g. artifacts/manifest.json, which will be tracked in the local state.json file")
-	PushCmd.Flags().StringVarP(&evidencePath, "evidence", "e", "evidence.json", "Local path to store the envidence file which is for tracking the manifest")
+	PushCmd.Flags().StringVarP(&statePath, "state", "s", "state.json", "Local path to store the state file which is for tracking the manifest")
+	PushCmd.PersistentFlags().BoolVar(&singleStore, "disable-full-tree", false, "push from the root directory. e.g. manifestPath=artifacts/manifest.json, then push entire artifacts folder")
 
 	PullCmd.Flags().StringVarP(&bucket, "bucket", "b", viper.GetString("BUCKET_NAME"), "S3 bucket point to the bucket name that stores the manifest")
 	PullCmd.Flags().StringVarP(&manifestPath, "manifest", "m", viper.GetString("MANIFEST_KEY_PATH"), "S3 key point to the bucket key that stores store the manifest")
@@ -44,10 +45,17 @@ coordinate safe access to the state file among multiple developers or
 automation tools.
 `,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running manifest upload command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
+
+		if disableFT, _ := cmd.Flags().GetBool("disable-full-tree"); disableFT {
+			singleStore = true
+		}
 
 		bucket, manifestPath, err := utils.GetS3BucketAndManifest(cmd)
 		if err != nil {
@@ -56,16 +64,16 @@ automation tools.
 		}
 		log.Debug("S3 bucket/key: ", bucket, manifestPath)
 
-		if err := manifest.UploadManifest(ctx, bucket, manifestPath); err != nil {
+		log.Debugf("storing single file: %t\n", singleStore)
+		if err := manifest.UploadManifest(context.Background(), cli, bucket, manifestPath, singleStore); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to upload the manifest to S3 bucket: ", err))
 			os.Exit(1)
 		}
 
 		if statePath := cmd.Flag("state").Value.String(); statePath != "" {
-			evidencePath := cmd.Flag("evidence").Value.String()
-			log.Debugf("S3 bucket/key: %s/%s. Local evidence path: %s\n", bucket, statePath, evidencePath)
-			if err := manifest.CreateStateJSON(context.Background(), bucket, statePath, evidencePath); err != nil {
-				cmd.PrintErrln(config.Red("❌ Failed to create the evidence json file: ", err))
+			log.Debugf("S3 bucket/key: %s/%s. Local evidence path: %s\n", bucket, manifestPath, statePath)
+			if err := manifest.CreateStateJSON(context.Background(), cli, bucket, manifestPath, statePath); err != nil {
+				cmd.PrintErrln(config.Red("❌ Failed to create the state json file: ", err))
 				os.Exit(1)
 			}
 		}
@@ -84,10 +92,13 @@ a lock on the S3 bucket to ensure that the state file is not modified by
 another user or process.
 `,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running manifest pull command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
@@ -96,7 +107,7 @@ another user or process.
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		if err := manifest.DownloadManifest(ctx, bucket, key, localPath); err != nil {
+		if err := manifest.DownloadManifest(context.Background(), cli, bucket, key, localPath); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to download the manifest from S3 bucket: ", err))
 			os.Exit(1)
 		}
@@ -112,19 +123,22 @@ var ListCmd = &cobra.Command{
 This command lists all the manifest files in the specified S3 bucket & key.
 `,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running manifest list command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		cli := utils.GetS3Client()
 
-		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		bucket, key, err := utils.GetS3BucketAndManifest(cmd)
 		if err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket/key: ", err))
 			os.Exit(1)
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		info, err := manifest.ListManifests(ctx, bucket, key)
+		info, err := manifest.ListManifests(context.Background(), cli, bucket, key)
 
 		if err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to list the manifest from S3 bucket: ", err))

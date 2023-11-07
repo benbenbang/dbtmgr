@@ -8,30 +8,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"statectl/internal/utils/fs"
+	t "statectl/internal/utils/types"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// Initialize a global S3 client
-var s3Client *s3.Client
-
-func init() {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		panic("configuration error, " + err.Error())
-	}
-
-	s3Client = s3.NewFromConfig(cfg)
-}
-
 // ListManifests lists all manifest files within a specified folder in an S3 bucket.
-func ListManifests(ctx context.Context, bucket, prefix string) (map[string]interface{}, error) {
+func ListManifests(ctx context.Context, cli *s3.Client, bucket, prefix string) (map[string]interface{}, error) {
 	const fileIndicator = "<file>"
 
-	resp, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+	prefix = fs.GetTopLevelDir(prefix)
+
+	resp, err := cli.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
 	})
@@ -76,8 +67,8 @@ func ListManifests(ctx context.Context, bucket, prefix string) (map[string]inter
 }
 
 // DownloadManifest downloads a specific manifest file from an S3 bucket.
-func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath string) error {
-	paginator := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
+func DownloadManifest(ctx context.Context, cli *s3.Client, bucket, keyPrefix, localFolderPath string) error {
+	paginator := s3.NewListObjectsV2Paginator(cli, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(keyPrefix),
 	})
@@ -119,7 +110,7 @@ func DownloadManifest(ctx context.Context, bucket, keyPrefix, localFolderPath st
 			}
 
 			// Get the object from S3
-			output, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+			output, err := cli.GetObject(ctx, &s3.GetObjectInput{
 				Bucket: aws.String(bucket),
 				Key:    object.Key,
 			})
@@ -162,10 +153,22 @@ func ignoreFile(filename string) bool {
 }
 
 // UploadManifest uploads a manifest file to an S3 bucket.
-func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
+func UploadManifest(ctx context.Context, cli *s3.Client, bucket, localFolderPath string, singleFile bool) error {
+
+	// Get the top-level directory from the localFolderPath
+	if !singleFile {
+		localFolderPath = fs.GetTopLevelDir(localFolderPath)
+	}
+
 	// Trim the localFolderPath to ensure it ends with a separator
 	// and remove it from the path to get the correct key structure
-	localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator)) + string(filepath.Separator)
+	if isDir, err := fs.IsDir(localFolderPath); err != nil {
+		return err
+	} else if isDir {
+		localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator)) + string(filepath.Separator)
+	} else {
+		localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator))
+	}
 
 	err := filepath.Walk(localFolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -191,7 +194,7 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
 		defer file.Close()
 
 		// Upload the file to S3
-		_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
+		_, err = cli.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 			Body:   file,
@@ -202,9 +205,9 @@ func UploadManifest(ctx context.Context, bucket, localFolderPath string) error {
 	return err
 }
 
-func CreateStateJSON(ctx context.Context, bucket, key, filePath string) error {
+func CreateStateJSON(ctx context.Context, cli *s3.Client, bucket, key, filePath string) error {
 	// Get the version ID from S3
-	resp, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+	resp, err := cli.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
@@ -221,7 +224,7 @@ func CreateStateJSON(ctx context.Context, bucket, key, filePath string) error {
 	commitSHA := strings.Trim(string(output), "\n")
 
 	// Create the state structure
-	state := State{
+	state := t.State{
 		VersionID: *resp.VersionId,
 		CommitSHA: commitSHA,
 		Bucket:    bucket,

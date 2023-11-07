@@ -9,11 +9,13 @@ import (
 	"statectl/internal/aws/lock"
 	"statectl/internal/aws/utils"
 	"statectl/internal/config"
-	"statectl/internal/subproc"
+	"statectl/internal/utils/subproc"
+	t "statectl/internal/utils/types"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -50,10 +52,12 @@ Example:
   # Acquire a lock on the S3 state file
   statectl lock acquire`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running lock acquire command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
 		extra_comment := ""
 
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
@@ -85,19 +89,21 @@ Example:
 			extra_comment = "WARNING: one or more environment variables were not found. Use timestamp as reference to check the exact commit and pipeline ID."
 		}
 
-		lockInfo := lock.LockInfo{
+		lockInfo := t.LockInfo{
 			LockID:    commit_sha,
 			TimeStamp: time.Now().Format(time.RFC3339),
 			Signer:    trigger_iid,
-			Comments: lock.Comments{
+			Comments: t.Comments{
 				Commit:  cs_comment,
 				Trigger: ti_comment,
 				Extra:   extra_comment,
 			},
 		}
 
-		if err := lock.AcquireStateLock(ctx, bucket, key, lockInfo); err != nil {
-			if errors.Is(err, lock.LockExists) {
+		cli := utils.GetS3Client()
+
+		if err := lock.AcquireStateLock(context.Background(), cli, bucket, key, lockInfo); err != nil {
+			if errors.Is(err, lock.ErrLockExists) {
 				cmd.Println(config.Yellow("Lock already acquired, exiting..."))
 				os.Exit(0)
 			}
@@ -124,11 +130,12 @@ Example:
   # Release the lock on the S3 state file
   statectl lock release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Running lock release command")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
 		bucket, key, err := utils.GetS3BucketAndKey(cmd)
 		if err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket and key: ", err))
@@ -136,7 +143,9 @@ Example:
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		if err := lock.ReleaseStateLock(ctx, bucket, key); err != nil {
+		cli := utils.GetS3Client()
+
+		if err := lock.ReleaseStateLock(context.Background(), cli, bucket, key); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to release lock: ", err))
 			os.Exit(1)
 		}
@@ -158,6 +167,9 @@ Example:
   # Prompt for confirmation and then force release the S3 lock
   statectl lock force-release`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+			log.SetLevel(logrus.DebugLevel)
+		}
 		log.Debug("Preparing to prompt for lock force-release")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -168,7 +180,9 @@ Example:
 		}
 		log.Debug("S3 bucket/key: ", bucket, key)
 
-		if exist, _, err := lock.CheckStateLock(context.Background(), bucket, key, false); err != nil {
+		cli := utils.GetS3Client()
+
+		if exist, _, err := lock.CheckStateLock(context.Background(), cli, bucket, key, false); err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to check lock status: ", err))
 			os.Exit(1)
 		} else if !exist {
@@ -176,7 +190,6 @@ Example:
 			os.Exit(1)
 		}
 
-		ctx := context.Background()
 		reader := bufio.NewReader(os.Stdin)
 
 		cmd.Println(config.Yellow("WARNING: You are about to forcefully remove the remote lock file. This may disrupt ongoing operations."))
@@ -189,7 +202,7 @@ Example:
 		}
 
 		// User confirmed, proceed with force release
-		err = lock.ForceReleaseLock(ctx, bucket, key)
+		err = lock.ForceReleaseLock(context.Background(), cli, bucket, key)
 		if err != nil {
 			cmd.PrintErrln(config.Red("Failed to force release lock: ", err))
 			os.Exit(1)
