@@ -24,6 +24,8 @@ var LockExists = errors.New("lock exists")
 func ListManifests(ctx context.Context, cli *s3.Client, bucket, prefix string) (map[string]interface{}, error) {
 	const fileIndicator = "<file>"
 
+	prefix = fs.GetTopLevelDir(prefix)
+
 	resp, err := cli.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
