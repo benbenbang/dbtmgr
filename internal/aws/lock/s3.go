@@ -22,14 +22,14 @@ var log = logging.GetLogger()
 var LockExists = errors.New("lock exists")
 
 // AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
-func AcquireStateLock(ctx context.Context, cli *s3.Client, bucket, key string, lockInfo t.LockInfo) error {
+func AcquireStateLock(ctx context.Context, cli t.S3Client, bucket, key string, lockInfo t.LockInfo) error {
 	exist, _, err := CheckStateLock(ctx, cli, bucket, key, false)
 	if err != nil {
 		return err
 	}
 
 	if exist {
-		same_sha, err := subproc.CompareSHAs(cli, bucket, key)
+		same_sha, err := subproc.CompareSHAs(ctx, cli, bucket, key)
 		if err != nil {
 			return fmt.Errorf("unable to acquire lock: lock already exists")
 		}
@@ -54,7 +54,7 @@ func AcquireStateLock(ctx context.Context, cli *s3.Client, bucket, key string, l
 }
 
 // CheckStateLock reads the state lock file from an S3 bucket.
-func CheckStateLock(ctx context.Context, cli *s3.Client, bucket, key string, serialize bool) (bool, t.LockInfo, error) {
+func CheckStateLock(ctx context.Context, cli t.S3Client, bucket, key string, serialize bool) (bool, t.LockInfo, error) {
 	resp, err := cli.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
@@ -87,13 +87,13 @@ func CheckStateLock(ctx context.Context, cli *s3.Client, bucket, key string, ser
 }
 
 // ReleaseStateLock deletes the state lock file in an S3 bucket if it exists.
-func ReleaseStateLock(ctx context.Context, cli *s3.Client, bucket, key string) error {
+func ReleaseStateLock(ctx context.Context, cli t.S3Client, bucket, key string) error {
 	_, _, err := CheckStateLock(ctx, cli, bucket, key, false)
 	if err != nil {
 		return err
 	}
 
-	same_sha, err := subproc.CompareSHAs(cli, bucket, key)
+	same_sha, err := subproc.CompareSHAs(ctx, cli, bucket, key)
 	if err != nil {
 		return fmt.Errorf("unable to release lock: %v", err)
 	}
