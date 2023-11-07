@@ -37,7 +37,7 @@ func FetchLocalSHA() (string, error) {
 }
 
 // FetchRemoteSHA fetches the git commit SHA from the state lock file in the S3 bucket.
-func FetchRemoteSHA(bucket, key string) (string, error) {
+func FetchRemoteSHA(cli *s3.Client, bucket, key string) (string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		panic("configuration error, " + err.Error())
@@ -74,7 +74,7 @@ func FetchRemoteSHA(bucket, key string) (string, error) {
 }
 
 // CompareSHAs compares the local and remote git commit SHAs and returns them.
-func CompareSHAs(bucket, key string) (bool, error) {
+func CompareSHAs(cli *s3.Client, bucket, key string) (bool, error) {
 	var localSHA, remoteSHA string
 	var err error
 
@@ -88,7 +88,7 @@ func CompareSHAs(bucket, key string) (bool, error) {
 		localSHA = CI_COMMIT_SHA
 	}
 
-	remoteSHA, err = FetchRemoteSHA(bucket, key)
+	remoteSHA, err = FetchRemoteSHA(cli, bucket, key)
 	if err != nil {
 		return false, err
 	}

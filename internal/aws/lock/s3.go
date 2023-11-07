@@ -29,7 +29,7 @@ func AcquireStateLock(ctx context.Context, cli *s3.Client, bucket, key string, l
 	}
 
 	if exist {
-		same_sha, err := subproc.CompareSHAs(bucket, key)
+		same_sha, err := subproc.CompareSHAs(cli, bucket, key)
 		if err != nil {
 			return fmt.Errorf("unable to acquire lock: lock already exists")
 		}
@@ -93,7 +93,7 @@ func ReleaseStateLock(ctx context.Context, cli *s3.Client, bucket, key string) e
 		return err
 	}
 
-	same_sha, err := subproc.CompareSHAs(bucket, key)
+	same_sha, err := subproc.CompareSHAs(cli, bucket, key)
 	if err != nil {
 		return fmt.Errorf("unable to release lock: %v", err)
 	}
