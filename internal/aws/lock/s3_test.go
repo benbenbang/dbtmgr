@@ -3,10 +3,11 @@ package lock_test
 import (
 	"context"
 	"statectl/internal/aws/lock"
+	"statectl/test"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/stretchr/testify/assert"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -21,29 +22,29 @@ func (m *MockS3Client) PutObject(ctx context.Context, input *s3.PutObjectInput) 
 
 func TestAcquireStateLock(t *testing.T) {
 	// Set up
-	ctx := context.TODO()
-	mockS3 := new(MockS3Client)
+	ctx := context.Background()
+	mockS3 := new(test.MockS3Client)
+
 	bucket := "test-bucket"
 	key := "test-key"
+	expectedSHA := "1234567890"
+	lockInfo, _ := test.CreateLockInfo(expectedSHA)
 
-	lockInfo := lock.LockInfo{
-		LockID:    "test",
-		TimeStamp: "2021-07-01T00:00:00Z",
-		Signer:    "test",
-		Comments: lock.Comments{
-			Commit:  "test",
-			Trigger: "test",
-			Extra:   "test",
-		},
-	}
-
-	// Define what the mock should return when PutObject is called.
-	mockS3.On("PutObject", ctx, mock.AnythingOfType("*s3.PutObjectInput")).Return(&s3.PutObjectOutput{}, nil)
+	// AcquireStateLock: GetObject -> PutObject
+	// Mock GetObject
+	mockS3.On("GetObject", mock.AnythingOfType("backgroundCtx"), mock.AnythingOfType("*s3.GetObjectInput"), mock.AnythingOfType("[]func(*s3.Options)")).Return(
+		&s3.GetObjectOutput{}, &types.NoSuchKey{},
+	)
+	// Mock PutObject
+	mockS3.On("PutObject", mock.AnythingOfType("backgroundCtx"), mock.AnythingOfType("*s3.PutObjectInput"), mock.AnythingOfType("[]func(*s3.Options)")).Return(
+		&s3.PutObjectOutput{}, nil,
+	)
 
 	// Call the function under test
-	err := lock.AcquireStateLock(ctx, bucket, key, lockInfo)
+	if err := lock.AcquireStateLock(ctx, mockS3, bucket, key, lockInfo); err != nil {
+		t.Errorf("error acquiring state lock: %v", err)
+	}
 
 	// Assertions
-	assert.NoError(t, err)
 	mockS3.AssertExpectations(t)
 }
