@@ -1,0 +1,32 @@
+name: ⚒️ statectl Feature Request
+description: "Suggest a new feature or enhancement for statectl client"
+labels: [feature_request]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for considering a feature request for statectl! Your insights help improve the user experience for the client. ✊
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Preliminary Checks
+      description: |
+        Before suggesting a new feature or enhancement for client, ensure it's related to the feature that this simple client can support.
+      options:
+        - label: I've searched Google & GitHub for similar requests and found none.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Details
+      description: |
+        Provide a comprehensive description of the client feature or enhancement you're suggesting. 🙏
+
+        Consider including:
+        * An example showcasing how code might appear when leveraging the new features.
+        * Specific use cases that would benefit from this feature or enhancement.
+        * Justification for adding this to the statectl client, especially if similar features exist elsewhere.
+    validations:
+      required: true

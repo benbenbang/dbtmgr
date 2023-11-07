@@ -54,7 +54,7 @@ Acquire / Release / Refresh / Sync a lock:
 statectl lock acquire
 statectl lock release
 
-# Manifest management 
+# Manifest management
 statectl manifest pull
 statectl manifest push
 ```
