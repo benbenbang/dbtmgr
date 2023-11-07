@@ -1,18 +1,17 @@
 [tool.poetry]
 name = "statectl"
-version = "0.3.0"
+version = "0.5.0"
 description = "state management and synchronization tool"
 authors = ["benbenbang <bn@bitbrew.dev>"]
 license = "Apache License, Version 2.0"
 readme = "README.md"
-packages = [
-    { include = "scripts" }
-]
+packages = [{ include = "scripts" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
 pre-commit = "^3.5.0"
 tomlkit = "^0.12.2"
+rich = "^13.6.0"
 
 [tool.poetry.scripts]
 verkit = "scripts.cli:verkit"
