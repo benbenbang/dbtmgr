@@ -19,7 +19,7 @@ import (
 // Initialize a global S3 client
 var KeyNotFound *types.NoSuchKey
 var log = logging.GetLogger()
-var LockExists = errors.New("lock exists")
+var ErrLockExists = errors.New("lock exists")
 
 // AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
 func AcquireStateLock(ctx context.Context, cli t.S3Client, bucket, key string, lockInfo t.LockInfo) error {
@@ -36,7 +36,7 @@ func AcquireStateLock(ctx context.Context, cli t.S3Client, bucket, key string, l
 		if !same_sha {
 			return fmt.Errorf("unable to acquire lock: lock already exists and it's not owned by this process.\nthis can happen if the lock was created by another process or user.\nplease retry after the lock is released or use the force-acquire command")
 		}
-		return LockExists
+		return ErrLockExists
 	}
 
 	lockInfoRaw, err := json.Marshal(lockInfo)

@@ -3,7 +3,6 @@ package manifest
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,9 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
-
-// Initialize a global S3 client
-var LockExists = errors.New("lock exists")
 
 // ListManifests lists all manifest files within a specified folder in an S3 bucket.
 func ListManifests(ctx context.Context, cli *s3.Client, bucket, prefix string) (map[string]interface{}, error) {

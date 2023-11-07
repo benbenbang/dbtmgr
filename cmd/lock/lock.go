@@ -103,7 +103,7 @@ Example:
 		cli := utils.GetS3Client()
 
 		if err := lock.AcquireStateLock(context.Background(), cli, bucket, key, lockInfo); err != nil {
-			if errors.Is(err, lock.LockExists) {
+			if errors.Is(err, lock.ErrLockExists) {
 				cmd.Println(config.Yellow("Lock already acquired, exiting..."))
 				os.Exit(0)
 			}
