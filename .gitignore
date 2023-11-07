@@ -148,3 +148,5 @@ _vendor*
 statectl
 version.info
 state.json
+coverage.out
+coverage.html
