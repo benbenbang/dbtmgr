@@ -9,7 +9,8 @@ import (
 	"statectl/internal/aws/lock"
 	"statectl/internal/aws/utils"
 	"statectl/internal/config"
-	"statectl/internal/subproc"
+	"statectl/internal/utils/subproc"
+	t "statectl/internal/utils/types"
 	"strings"
 	"time"
 
@@ -89,11 +90,11 @@ Example:
 			extra_comment = "WARNING: one or more environment variables were not found. Use timestamp as reference to check the exact commit and pipeline ID."
 		}
 
-		lockInfo := lock.LockInfo{
+		lockInfo := t.LockInfo{
 			LockID:    commit_sha,
 			TimeStamp: time.Now().Format(time.RFC3339),
 			Signer:    trigger_iid,
-			Comments: lock.Comments{
+			Comments: t.Comments{
 				Commit:  cs_comment,
 				Trigger: ti_comment,
 				Extra:   extra_comment,

@@ -3,12 +3,14 @@ package manifest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"statectl/internal/aws/utils"
+	"statectl/internal/utils/fs"
+	t "statectl/internal/utils/types"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,6 +20,7 @@ import (
 
 // Initialize a global S3 client
 var s3Client *s3.Client
+var LockExists = errors.New("lock exists")
 
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -164,24 +167,25 @@ func ignoreFile(filename string) bool {
 
 // UploadManifest uploads a manifest file to an S3 bucket.
 func UploadManifest(ctx context.Context, bucket, localFolderPath string, singleFile bool) error {
+
+	// Get the top-level directory from the localFolderPath
+	if !singleFile {
+		localFolderPath = fs.GetTopLevelDir(localFolderPath)
+	}
+
 	// Trim the localFolderPath to ensure it ends with a separator
 	// and remove it from the path to get the correct key structure
-	localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator))
-
-	if isDir, err := utils.IsDir(localFolderPath); err != nil {
+	if isDir, err := fs.IsDir(localFolderPath); err != nil {
 		return err
 	} else if isDir {
-		localFolderPath += string(filepath.Separator)
+		localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator)) + string(filepath.Separator)
+	} else {
+		localFolderPath = strings.TrimRight(localFolderPath, string(filepath.Separator))
 	}
 
 	err := filepath.Walk(localFolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-
-		if singleFile && path != localFolderPath {
-			// Skip all files except the root directory
-			return nil
 		}
 
 		// Skip directories and ignored files
@@ -233,7 +237,7 @@ func CreateStateJSON(ctx context.Context, bucket, key, filePath string) error {
 	commitSHA := strings.Trim(string(output), "\n")
 
 	// Create the state structure
-	state := State{
+	state := t.State{
 		VersionID: *resp.VersionId,
 		CommitSHA: commitSHA,
 		Bucket:    bucket,

@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"io"
 	"statectl/internal/logging"
-	"statectl/internal/subproc"
+	"statectl/internal/utils/subproc"
+	t "statectl/internal/utils/types"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,6 +21,7 @@ import (
 var s3Client *s3.Client
 var KeyNotFound *types.NoSuchKey
 var log = logging.GetLogger()
+var LockExists = errors.New("lock exists")
 
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -31,7 +33,7 @@ func init() {
 }
 
 // AcquireStateLock attempts to create or update the state lock file in an S3 bucket.
-func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo) error {
+func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo t.LockInfo) error {
 	exist, _, err := CheckStateLock(ctx, bucket, key, false)
 	if err != nil {
 		return err
@@ -63,30 +65,30 @@ func AcquireStateLock(ctx context.Context, bucket, key string, lockInfo LockInfo
 }
 
 // CheckStateLock reads the state lock file from an S3 bucket.
-func CheckStateLock(ctx context.Context, bucket, key string, serialize bool) (bool, LockInfo, error) {
+func CheckStateLock(ctx context.Context, bucket, key string, serialize bool) (bool, t.LockInfo, error) {
 	resp, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
 		if errors.As(err, &KeyNotFound) {
-			return false, LockInfo{}, nil // Lock does not exist.
+			return false, t.LockInfo{}, nil // Lock does not exist.
 		}
-		return false, LockInfo{}, err // Some other error occurred.
+		return false, t.LockInfo{}, err // Some other error occurred.
 	}
 	defer resp.Body.Close()
 
 	lockInfoRaw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, LockInfo{}, err
+		return false, t.LockInfo{}, err
 	}
 	log.Debugf("Raw lock info: %s\n", lockInfoRaw)
 
 	if !serialize {
-		return true, LockInfo{}, nil
+		return true, t.LockInfo{}, nil
 	}
 
-	lockInfo := LockInfo{}
+	lockInfo := t.LockInfo{}
 	err = json.Unmarshal(lockInfoRaw, &lockInfo)
 	if err != nil {
 		return false, lockInfo, err

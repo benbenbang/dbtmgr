@@ -1,4 +1,4 @@
-package manifest
+package types
 
 type State struct {
 	VersionID string `json:"version_id"`

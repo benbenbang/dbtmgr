@@ -1,6 +1,4 @@
-package lock
-
-import "errors"
+package types
 
 type Comments struct {
 	Commit  string `json:"commit"`
@@ -14,5 +12,3 @@ type LockInfo struct {
 	Signer    string   `json:"signer"`
 	Comments  Comments `json:"comments"`
 }
-
-var LockExists = errors.New("lock exists")
