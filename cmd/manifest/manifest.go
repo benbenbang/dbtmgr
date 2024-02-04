@@ -100,7 +100,8 @@ another user or process.
 	Run: func(cmd *cobra.Command, args []string) {
 		cli := utils.GetS3Client()
 
-		bucket, key, err := utils.GetS3BucketAndKey(cmd)
+		bucket, key, err := utils.GetS3BucketAndManifest(cmd)
+
 		if err != nil {
 			cmd.PrintErrln(config.Red("❌ Failed to get S3 bucket/key: ", err))
 			os.Exit(1)
